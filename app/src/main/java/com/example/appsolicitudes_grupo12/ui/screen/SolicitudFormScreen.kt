@@ -9,7 +9,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -17,11 +23,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,59 +37,35 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.SnackbarDuration
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
-import kotlinx.coroutines.launch
 
 // Pantalla del formulario para crear una solicitud.
 // Solo MUESTRA datos y ENVÍA eventos al ViewModel: no valida ni guarda por su cuenta.
 // viewModel() entrega el ViewModel; sobrevive a giros de pantalla.
-// onGuardado: lo que debe pasar cuando se guarda bien (más adelante: navegar a la lista).
+// onGuardado: lo que debe pasar cuando la persona acepta el aviso de éxito
+// onVolver: lo que debe pasar al pulsar la flecha de la barra superior
+// (la navegación lo usa para volver a la lista sin guardar).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SolicitudFormScreen(
     viewModel: SolicitudViewModel = viewModel(),
-    onGuardado: () -> Unit = {}
+    onGuardado: () -> Unit = {},
+    onVolver: () -> Unit = {}
 ) {
     // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
 
-    // Controla los mensajes emergentes (Snackbar) en la parte inferior
+    // Controla los mensajes emergentes (Snackbar) en la parte inferior.
+    // Ahora se usa solo para errores de guardado.
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     // Recuerda si el menú de categorías está abierto o cerrado
     var menuCategoriaAbierto by remember { mutableStateOf(false) }
-
-    // Se ejecuta cuando cambia "guardadoExitosamente".
-    // Si se guardó bien: muestra el código, deja el formulario vacío y ejecuta onGuardado.
-    LaunchedEffect(estado.guardadoExitosamente) {
-        if (estado.guardadoExitosamente) {
-            // El código se lee ANTES de vaciar el formulario, porque al reiniciar se borra
-            val codigo = estado.codigoGenerado
-
-            viewModel.reiniciarFormulario()
-            onGuardado()
-
-            // Se lanza aparte para que el mensaje no se corte al reiniciar el formulario
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = if (codigo != null) {
-                        "Solicitud registrada. Tu código de seguimiento es $codigo"
-                    } else {
-                        "Solicitud registrada correctamente"
-                    },
-                    withDismissAction = true,            // botón para cerrar el mensaje
-                    duration = SnackbarDuration.Long     // dura más para alcanzar a anotarlo
-                )
-            }
-        }
-    }
 
     // Se ejecuta cuando aparece un error de guardado: lo muestra y luego lo descarta
     LaunchedEffect(estado.errorGuardado) {
@@ -91,10 +75,59 @@ fun SolicitudFormScreen(
         }
     }
 
+    // ---------- Aviso de éxito: cuadro de diálogo con el código ----------
+    // Aparece solo cuando se guardó bien. No se cierra tocando fuera ni con
+    // "atrás": la persona debe pulsar Aceptar, así no se pierde su código.
+    if (estado.guardadoExitosamente) {
+        AlertDialog(
+            onDismissRequest = {},
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            ),
+            title = { Text("Solicitud registrada") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Guarda tu código de seguimiento:")
+                    // SelectionContainer permite mantener pulsado para copiar el código
+                    SelectionContainer {
+                        Text(
+                            text = estado.codigoGenerado ?: "",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.reiniciarFormulario()  // cierra el diálogo y vacía el formulario
+                        onGuardado()                     // avisa a la navegación para volver
+                    }
+                ) {
+                    Text("Aceptar")
+                }
+            }
+        )
+    }
+
     // Scaffold = estructura base: barra superior, contenido y zona de mensajes
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Nueva solicitud") }) },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Nueva solicitud") },
+                // Flecha de volver a la izquierda del título
+                navigationIcon = {
+                    IconButton(onClick = onVolver) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Volver"   // descripción para lectores de pantalla
+                        )
+                    }
+                }
+            )
+        },
     ) { paddingInterno ->
 
         // Column con scroll: si el teclado ocupa espacio, se puede deslizar
@@ -218,7 +251,7 @@ fun SolicitudFormScreen(
 
             Text(
                 text = "* Campo obligatorio",
-                style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }
