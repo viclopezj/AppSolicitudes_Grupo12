@@ -128,6 +128,7 @@ fun SolicitudFormScreen(
                 }
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) }   // <- agregar esta línea
     ) { paddingInterno ->
 
         // Column con scroll: si el teclado ocupa espacio, se puede deslizar

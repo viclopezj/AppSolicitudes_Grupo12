@@ -39,12 +39,15 @@ import com.example.appsolicitudes_grupo12.viewModel.ListaSolicitudesViewModel
 
 // Pantalla que muestra las solicitudes guardadas en Room.
 // Solo MUESTRA el estado que le entrega el ViewModel: no lee la base de datos.
-// onAgregarClick: lo que pasa al pulsar el botón + (más adelante: ir al formulario).
+// onAgregarClick: lo que pasa al pulsar el botón + (la navegación lo usa para ir al formulario).
+// onSolicitudClick: lo que pasa al tocar una tarjeta. Recibe el id de la solicitud
+// (la navegación lo usa para abrir el detalle).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaSolicitudesScreen(
     viewModel: ListaSolicitudesViewModel = viewModel(),
-    onAgregarClick: () -> Unit = {}
+    onAgregarClick: () -> Unit = {},
+    onSolicitudClick: (Int) -> Unit = {}
 ) {
     // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
@@ -71,7 +74,10 @@ fun ListaSolicitudesScreen(
             // Kotlin obliga a cubrir los 4 casos.
             when (val actual = estado) {
                 is ListaSolicitudesUiState.Loading -> ContenidoCargando()
-                is ListaSolicitudesUiState.Success -> ContenidoLista(actual.solicitudes)
+                is ListaSolicitudesUiState.Success -> ContenidoLista(
+                    solicitudes = actual.solicitudes,
+                    onSolicitudClick = onSolicitudClick
+                )
                 is ListaSolicitudesUiState.Empty -> ContenidoVacio()
                 is ListaSolicitudesUiState.Error -> ContenidoError(
                     mensaje = actual.mensaje,
@@ -148,7 +154,10 @@ private fun ContenidoError(
 
 // ---------- Estado Success: la lista de solicitudes ----------
 @Composable
-private fun ContenidoLista(solicitudes: List<SolicitudEntity>) {
+private fun ContenidoLista(
+    solicitudes: List<SolicitudEntity>,
+    onSolicitudClick: (Int) -> Unit
+) {
     // LazyColumn solo dibuja los elementos visibles: es la forma correcta de hacer listas
     LazyColumn(
         // El espacio inferior evita que el botón + tape la última tarjeta
@@ -160,15 +169,25 @@ private fun ContenidoLista(solicitudes: List<SolicitudEntity>) {
     ) {
         // key = id ayuda a Compose a identificar cada tarjeta cuando la lista cambia
         items(items = solicitudes, key = { it.id }) { solicitud ->
-            TarjetaSolicitud(solicitud)
+            TarjetaSolicitud(
+                solicitud = solicitud,
+                onClick = { onSolicitudClick(solicitud.id) }   // avisa qué solicitud se tocó
+            )
         }
     }
 }
 
-// Una tarjeta por solicitud: código, estado, título y categoría
+// Una tarjeta por solicitud: código, estado, título y categoría.
+// Al pasarle onClick a la Card, toda la tarjeta se puede tocar.
 @Composable
-private fun TarjetaSolicitud(solicitud: SolicitudEntity) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun TarjetaSolicitud(
+    solicitud: SolicitudEntity,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -203,8 +222,9 @@ private fun TarjetaSolicitud(solicitud: SolicitudEntity) {
 
 // Etiqueta de color con el nombre del estado.
 // Hoy solo existe "Recibida", pero ya quedan previstos los demás estados del caso.
+// Es pública (sin "private") porque DetalleSolicitudScreen también la usa.
 @Composable
-private fun EtiquetaEstado(estado: String) {
+fun EtiquetaEstado(estado: String) {
     val colores = MaterialTheme.colorScheme
 
     // Cada estado tiene un par: color de fondo y color del texto

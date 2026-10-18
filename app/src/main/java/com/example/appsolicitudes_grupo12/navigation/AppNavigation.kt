@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.appsolicitudes_grupo12.ui.screen.DetalleSolicitudScreen
 import com.example.appsolicitudes_grupo12.ui.screen.ListaSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
 import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
@@ -22,14 +23,21 @@ object Rutas {
     // La ruta del menú lleva un dato: el nombre de la persona. {nombre} es el hueco.
     const val MENU = "menu/{nombre}"
 
+    // La ruta del detalle lleva un dato: el id de la solicitud. {id} es el hueco.
+    // El nombre "id" debe ser igual al que lee DetalleSolicitudViewModel.
+    const val DETALLE = "detalle/{id}"
+
     // Arma la ruta real del menú, por ejemplo "menu/Usuario%20Demo".
     // Uri.encode convierte los espacios y símbolos para que la ruta sea válida.
     fun menuConNombre(nombre: String): String = "menu/${Uri.encode(nombre)}"
+
+    // Arma la ruta real del detalle, por ejemplo "detalle/3".
+    fun detalleConId(id: Int): String = "detalle/$id"
 }
 
 // Define qué pantallas existen y cómo se llega de una a otra.
 // MainActivity solo llama a esta función.
-// Flujo: Login -> Menú -> Lista -> Formulario.
+// Flujo: Login -> Menú -> Lista -> Formulario / Detalle.
 @Composable
 fun AppNavigation() {
 
@@ -82,7 +90,9 @@ fun AppNavigation() {
         composable(Rutas.LISTA) {
             ListaSolicitudesScreen(
                 // El botón + lleva al formulario
-                onAgregarClick = { navController.navigate(Rutas.FORMULARIO) }
+                onAgregarClick = { navController.navigate(Rutas.FORMULARIO) },
+                // Tocar una tarjeta lleva al detalle de esa solicitud
+                onSolicitudClick = { id -> navController.navigate(Rutas.detalleConId(id)) }
             )
         }
 
@@ -98,6 +108,19 @@ fun AppNavigation() {
                     }
                 },
                 // La flecha de la barra superior vuelve a la pantalla anterior
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
+        // Pantalla 5: detalle (y edición) de una solicitud
+        composable(
+            route = Rutas.DETALLE,
+            // IntType: el id viaja como número. DetalleSolicitudViewModel lo recibe
+            // con savedStateHandle.get<Int>("id"), por eso el tipo debe coincidir.
+            arguments = listOf(navArgument("id") { type = NavType.IntType })
+        ) {
+            DetalleSolicitudScreen(
+                // La flecha (o el botón Volver) regresa a la lista
                 onVolver = { navController.popBackStack() }
             )
         }

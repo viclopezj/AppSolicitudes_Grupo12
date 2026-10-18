@@ -185,6 +185,6 @@ class SolicitudViewModel(app: Application) : AndroidViewModel(app) {
         )
 
         // Categorías donde el servicio relacionado NO es obligatorio
-        private val CATEGORIAS_SIN_SERVICIO = setOf("Consulta", "Otro requerimiento")
+        val CATEGORIAS_SIN_SERVICIO = setOf("Consulta", "Otro requerimiento")
     }
 }
