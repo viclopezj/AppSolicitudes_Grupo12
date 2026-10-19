@@ -11,6 +11,7 @@ import com.example.appsolicitudes_grupo12.ui.screen.DetalleSolicitudScreen
 import com.example.appsolicitudes_grupo12.ui.screen.ListaSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
 import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
+import com.example.appsolicitudes_grupo12.ui.screen.QrScannerScreen
 import com.example.appsolicitudes_grupo12.ui.screen.SolicitudFormScreen
 
 // Nombres de las rutas (las "direcciones" de cada pantalla).
@@ -19,6 +20,9 @@ object Rutas {
     const val LOGIN = "login"
     const val LISTA = "lista"
     const val FORMULARIO = "formulario"
+
+    // Pantalla del escáner QR. Se abre desde la barra superior de la lista.
+    const val QR = "qr"
 
     // La ruta del menú lleva un dato: el nombre de la persona. {nombre} es el hueco.
     const val MENU = "menu/{nombre}"
@@ -37,7 +41,7 @@ object Rutas {
 
 // Define qué pantallas existen y cómo se llega de una a otra.
 // MainActivity solo llama a esta función.
-// Flujo: Login -> Menú -> Lista -> Formulario / Detalle.
+// Flujo: Login -> Menú -> Lista -> Formulario / Detalle / Escáner QR.
 @Composable
 fun AppNavigation() {
 
@@ -92,7 +96,9 @@ fun AppNavigation() {
                 // El botón + lleva al formulario
                 onAgregarClick = { navController.navigate(Rutas.FORMULARIO) },
                 // Tocar una tarjeta lleva al detalle de esa solicitud
-                onSolicitudClick = { id -> navController.navigate(Rutas.detalleConId(id)) }
+                onSolicitudClick = { id -> navController.navigate(Rutas.detalleConId(id)) },
+                // El botón "Escanear QR" de la barra superior abre el escáner
+                onEscanearClick = { navController.navigate(Rutas.QR) }
             )
         }
 
@@ -120,8 +126,19 @@ fun AppNavigation() {
             arguments = listOf(navArgument("id") { type = NavType.IntType })
         ) {
             DetalleSolicitudScreen(
-                // La flecha (o el botón Volver) regresa a la lista
+                // La flecha (o el botón Volver) regresa a la pantalla anterior
                 onVolver = { navController.popBackStack() }
+            )
+        }
+
+        // Pantalla 6: escáner QR
+        composable(Rutas.QR) {
+            QrScannerScreen(
+                // La flecha de la barra superior vuelve a la lista
+                onVolver = { navController.popBackStack() },
+                // "Abrir detalle" lleva a la misma pantalla de detalle de siempre.
+                // Al volver con "atrás" se regresa al escáner.
+                onAbrirDetalle = { id -> navController.navigate(Rutas.detalleConId(id)) }
             )
         }
     }

@@ -1,20 +1,26 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,7 +29,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -37,12 +46,22 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
+import com.example.appsolicitudes_grupo12.utils.CameraPermissionHelper
+import com.example.appsolicitudes_grupo12.utils.EvidenciaUtils
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
+import java.io.File
 
 // Pantalla del formulario para crear una solicitud.
 // Solo MUESTRA datos y ENVÍA eventos al ViewModel: no valida ni guarda por su cuenta.
@@ -59,13 +78,55 @@ fun SolicitudFormScreen(
 ) {
     // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
+    val context = LocalContext.current
 
     // Controla los mensajes emergentes (Snackbar) en la parte inferior.
-    // Ahora se usa solo para errores de guardado.
+    // Se usa para errores de guardado y errores de la foto.
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Recuerda si el menú de categorías está abierto o cerrado
     var menuCategoriaAbierto by remember { mutableStateOf(false) }
+
+    // Ruta del archivo donde la cámara está escribiendo la foto. Mientras la cámara está abierta
+    // la app puede reiniciarse, por eso se usa rememberSaveable: así no se pierde el dato.
+    // Se guarda como texto (la ruta) porque un File no se puede guardar ahí.
+    var rutaFotoPendiente by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // ---------- Lanzadores de cámara, galería y permiso ----------
+
+    // Abre la app de cámara del teléfono. Al volver, "exito" dice si se tomó la foto.
+    val lanzadorCamara = rememberLauncherForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { exito ->
+        val ruta = rutaFotoPendiente
+        rutaFotoPendiente = null
+        if (ruta != null) {
+            val archivo = File(ruta)
+            if (exito) viewModel.onFotoTomada(archivo) else viewModel.onFotoCancelada(archivo)
+        }
+    }
+
+    // Prepara un archivo vacío y abre la cámara para que escriba la foto en él.
+    val abrirCamara = {
+        val archivo = viewModel.crearArchivoParaCamara()
+        rutaFotoPendiente = archivo.absolutePath
+        lanzadorCamara.launch(EvidenciaUtils.uriParaCamara(context, archivo))
+    }
+
+    // Abre el cuadro "¿Permitir usar la cámara?". Si la persona acepta, se abre la cámara.
+    val lanzadorPermiso = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { concedido ->
+        if (concedido) abrirCamara() else viewModel.onPermisoCamaraDenegado()
+    }
+
+    // Abre el selector de fotos del sistema. No necesita permisos.
+    // "uri" es null si la persona cierra el selector sin elegir nada.
+    val lanzadorGaleria = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) viewModel.onFotoElegida(uri)
+    }
 
     // Se ejecuta cuando aparece un error de guardado: lo muestra y luego lo descarta
     LaunchedEffect(estado.errorGuardado) {
@@ -75,10 +136,20 @@ fun SolicitudFormScreen(
         }
     }
 
-    // ---------- Aviso de éxito: cuadro de diálogo con el código ----------
+    // Se ejecuta cuando aparece un error de la foto: lo muestra y luego lo descarta
+    LaunchedEffect(estado.errorFoto) {
+        estado.errorFoto?.let { mensaje ->
+            snackbarHostState.showSnackbar(mensaje)
+            viewModel.descartarErrorFoto()
+        }
+    }
+
+    // ---------- Aviso de éxito: cuadro de diálogo con el código y su QR ----------
     // Aparece solo cuando se guardó bien. No se cierra tocando fuera ni con
     // "atrás": la persona debe pulsar Aceptar, así no se pierde su código.
-    if (estado.guardadoExitosamente) {
+    // solicitudCreada trae la solicitud recién guardada; de ahí salen el código y el QR.
+    val solicitudCreada = estado.solicitudCreada
+    if (estado.guardadoExitosamente && solicitudCreada != null) {
         AlertDialog(
             onDismissRequest = {},
             properties = DialogProperties(
@@ -87,16 +158,32 @@ fun SolicitudFormScreen(
             ),
             title = { Text("Solicitud registrada") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Con scroll: en pantallas pequeñas o en horizontal el QR no se corta
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text("Guarda tu código de seguimiento:")
                     // SelectionContainer permite mantener pulsado para copiar el código
                     SelectionContainer {
                         Text(
-                            text = estado.codigoGenerado ?: "",
+                            text = solicitudCreada.codigo,
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
+
+                    // QR con los datos de la solicitud, para consultarla con la cámara.
+                    // También se puede ver después en el detalle de la solicitud.
+                    ImagenQrSolicitud(solicitud = solicitudCreada)
+
+                    Text(
+                        text = "Escanéalo desde la lista de solicitudes para ver sus datos.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
             },
             confirmButton = {
@@ -128,7 +215,7 @@ fun SolicitudFormScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }   // <- agregar esta línea
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingInterno ->
 
         // Column con scroll: si el teclado ocupa espacio, se puede deslizar
@@ -231,10 +318,92 @@ fun SolicitudFormScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // ---------- Evidencia (foto opcional) ----------
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Evidencia (opcional)",
+                    style = MaterialTheme.typography.titleSmall
+                )
+
+                // Vista previa: Loading mientras se copia la foto, la foto si ya hay una
+                if (estado.cargandoFoto) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (estado.evidenciaUri != null) {
+                    // AsyncImage (de Coil) lee el archivo en segundo plano y lo reduce
+                    // al tamaño necesario, para que una foto grande no gaste memoria.
+                    AsyncImage(
+                        model = estado.evidenciaUri,
+                        contentDescription = "Foto de evidencia de la solicitud",
+                        contentScale = ContentScale.Crop,   // llena el recuadro recortando los bordes
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                }
+
+                // Los dos botones comparten el ancho. Se desactivan mientras se copia o se guarda.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            // Si ya hay permiso se abre la cámara; si no, se pide primero
+                            if (CameraPermissionHelper.hasCameraPermission(context)) {
+                                abrirCamara()
+                            } else {
+                                lanzadorPermiso.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        enabled = !estado.cargandoFoto && !estado.guardando,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Tomar foto")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            lanzadorGaleria.launch(
+                                PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly
+                                )
+                            )
+                        },
+                        enabled = !estado.cargandoFoto && !estado.guardando,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Elegir de galería")
+                    }
+                }
+
+                // Solo aparece si ya hay una foto elegida
+                if (estado.evidenciaUri != null) {
+                    TextButton(
+                        onClick = viewModel::quitarFoto,
+                        enabled = !estado.cargandoFoto && !estado.guardando
+                    ) {
+                        Text("Quitar foto")
+                    }
+                }
+
+                // Recordatorio de la regla del caso: solo datos ficticios
+                Text(
+                    text = "Usa solo imágenes de prueba, sin datos personales.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             // ---------- Botón Registrar ----------
             Button(
                 onClick = { viewModel.guardar() },
-                enabled = !estado.guardando,      // se desactiva mientras guarda
+                // se desactiva mientras guarda o mientras se copia una foto
+                enabled = !estado.guardando && !estado.cargandoFoto,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (estado.guardando) {

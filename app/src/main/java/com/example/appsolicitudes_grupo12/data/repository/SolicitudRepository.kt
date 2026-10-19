@@ -68,7 +68,8 @@ class SolicitudRepository(private val dao: SolicitudDao) {
 
     // Crea la solicitud y la guarda en Room.
     // Aquí se aplican las reglas del negocio: código único, fecha y estado inicial.
-    // Devuelve Result: si salió bien trae el código generado; si falló, trae el error.
+    // Devuelve Result: si salió bien trae la solicitud completa (con su código, fecha y estado),
+    // porque con esos datos se dibuja el QR; si falló, trae el error.
     // Así el ViewModel puede mostrar un mensaje en vez de que la app se cierre.
     suspend fun guardarSolicitud(
         titulo: String,
@@ -76,11 +77,10 @@ class SolicitudRepository(private val dao: SolicitudDao) {
         categoria: String,
         servicio: String,
         evidenciaUri: String? = null
-    ): Result<String> {
+    ): Result<SolicitudEntity> {
         return try {
-            val codigo = generarCodigo()
             val solicitud = SolicitudEntity(
-                codigo = codigo,
+                codigo = generarCodigo(),
                 titulo = titulo.trim(),
                 descripcion = descripcion.trim(),
                 categoria = categoria,
@@ -89,8 +89,9 @@ class SolicitudRepository(private val dao: SolicitudDao) {
                 estado = "Recibida",                       // todo comienza como "Recibida"
                 fechaCreacion = System.currentTimeMillis() // fecha y hora actuales
             )
-            dao.insertar(solicitud)
-            Result.success(codigo)
+            // insertar() devuelve el id que Room le asignó; se agrega a la copia que se entrega
+            val idNuevo = dao.insertar(solicitud)
+            Result.success(solicitud.copy(id = idNuevo.toInt()))
         } catch (e: CancellationException) {
             // Si la corrutina se cancela (por ejemplo, se cierra la pantalla),
             // hay que dejar pasar esa señal y no tratarla como un error.

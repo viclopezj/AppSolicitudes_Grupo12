@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -41,9 +43,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.SubcomposeAsyncImage
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.DetalleSolicitudUiState
 import com.example.appsolicitudes_grupo12.model.EdicionSolicitud
@@ -54,11 +59,11 @@ import java.util.Date
 import java.util.Locale
 
 // Pantalla de detalle de una solicitud. Tiene dos modos:
-//   - Lectura: muestra los datos guardados y el botón "Editar solicitud".
+//   - Lectura: muestra los datos guardados, la foto de evidencia, su código QR y el botón "Editar solicitud".
 //   - Edición: muestra los campos para modificar título, descripción, categoría y servicio.
 // Solo MUESTRA el estado que le entrega el ViewModel y ENVÍA eventos: no lee ni guarda por su cuenta.
 // onVolver: lo que debe pasar al pulsar la flecha o el botón "Volver"
-// (la navegación lo usa para regresar a la lista).
+// (la navegación lo usa para regresar a la pantalla anterior).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleSolicitudScreen(
@@ -239,18 +244,95 @@ private fun DetalleLectura(
             valor = formatearFecha(solicitud.fechaCreacion)
         )
 
-        // Espacio previsto para la evidencia. Aquí se mostrará la foto cuando
-        // integremos la cámara; por ahora solo indica si hay una foto asociada.
-        CampoDeLectura(
-            etiqueta = "Evidencia",
-            valor = if (solicitud.evidenciaUri == null) "Sin foto adjunta" else "Foto adjunta"
-        )
+        // ---------- Evidencia: la foto asociada a la solicitud ----------
+        EvidenciaSolicitud(evidenciaUri = solicitud.evidenciaUri)
+
+        // ---------- Código QR de la solicitud ----------
+        // Se dibuja con los datos guardados en este momento. Si la solicitud se edita,
+        // este QR se actualiza solo; un QR que ya se imprimió o capturó antes, no.
+        // La foto NO viaja dentro del QR: solo existe en este teléfono.
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Código QR",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            ImagenQrSolicitud(solicitud = solicitud)
+            Text(
+                text = "Se puede escanear desde la lista de solicitudes.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
 
         Button(
             onClick = onEditar,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Editar solicitud")
+        }
+    }
+}
+
+// Muestra la foto de evidencia de la solicitud. Cubre tres casos:
+//   - No hay foto (evidenciaUri es null): dice "Sin foto adjunta".
+//   - Hay foto: la carga y la muestra (mientras carga, un indicador).
+//   - La foto no se pudo leer (por ejemplo, el archivo ya no existe): avisa en vez de cerrar la app.
+// SubcomposeAsyncImage es de Coil: lee el archivo en segundo plano y lo reduce al tamaño
+// necesario, y permite decidir qué dibujar mientras carga o si falla.
+@Composable
+private fun EvidenciaSolicitud(evidenciaUri: String?) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Evidencia",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (evidenciaUri == null) {
+            Text(
+                text = "Sin foto adjunta",
+                style = MaterialTheme.typography.bodyLarge
+            )
+        } else {
+            SubcomposeAsyncImage(
+                model = evidenciaUri,
+                contentDescription = "Foto de evidencia de la solicitud",
+                // Fit: se ve la foto completa, sin recortar los bordes
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                // Estado Loading: indicador mientras se lee la foto
+                loading = {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                },
+                // Estado Error: mensaje amable si el archivo no se puede leer
+                error = {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No se pudo cargar la foto",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            )
         }
     }
 }
@@ -418,7 +500,7 @@ private fun EncabezadoSolicitud(solicitud: SolicitudEntity) {
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary
         )
-        // EtiquetaEstado está en ListaSolicitudesScreen.kt (hay que quitarle el "private")
+        // EtiquetaEstado está en ListaSolicitudesScreen.kt
         EtiquetaEstado(solicitud.estado)
     }
 }

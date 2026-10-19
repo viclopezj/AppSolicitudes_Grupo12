@@ -23,6 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -42,19 +43,34 @@ import com.example.appsolicitudes_grupo12.viewModel.ListaSolicitudesViewModel
 // onAgregarClick: lo que pasa al pulsar el botón + (la navegación lo usa para ir al formulario).
 // onSolicitudClick: lo que pasa al tocar una tarjeta. Recibe el id de la solicitud
 // (la navegación lo usa para abrir el detalle).
+// onEscanearClick: lo que pasa al pulsar "Escanear QR" de la barra superior
+// (la navegación lo usa para abrir el escáner).
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaSolicitudesScreen(
     viewModel: ListaSolicitudesViewModel = viewModel(),
     onAgregarClick: () -> Unit = {},
-    onSolicitudClick: (Int) -> Unit = {}
+    onSolicitudClick: (Int) -> Unit = {},
+    onEscanearClick: () -> Unit = {}
 ) {
     // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
 
     // Scaffold = estructura base: barra superior, contenido y botón flotante
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Solicitudes") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Solicitudes") },
+                // "actions" son los botones que van a la derecha de la barra superior.
+                // Se usa un botón de texto porque Material3 ya no trae un ícono de QR
+                // en el paquete básico de íconos y no queremos agregar el paquete extendido.
+                actions = {
+                    TextButton(onClick = onEscanearClick) {
+                        Text("Escanear QR")
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = onAgregarClick) {
                 Icon(
@@ -222,7 +238,7 @@ private fun TarjetaSolicitud(
 
 // Etiqueta de color con el nombre del estado.
 // Hoy solo existe "Recibida", pero ya quedan previstos los demás estados del caso.
-// Es pública (sin "private") porque DetalleSolicitudScreen también la usa.
+// Es pública (sin "private") porque DetalleSolicitudScreen y QrScannerScreen también la usan.
 @Composable
 fun EtiquetaEstado(estado: String) {
     val colores = MaterialTheme.colorScheme

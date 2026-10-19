@@ -73,6 +73,9 @@ dependencies {
     // ZXing core: GENERA el QR de cada solicitud (para poder probar el escáner)
     implementation("com.google.zxing:core:3.5.3")
 
+    // --- Imágenes (foto de evidencia) ---
+    implementation(libs.coil.compose)   // Coil: AsyncImage muestra la foto guardada
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
