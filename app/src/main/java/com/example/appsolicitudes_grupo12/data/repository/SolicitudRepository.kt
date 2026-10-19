@@ -43,6 +43,29 @@ class SolicitudRepository(private val dao: SolicitudDao) {
         }
     }
 
+    // Busca UNA solicitud por su código (por ejemplo "SOL-1A2B3C4D").
+    // Es lo que usa el escáner QR: el QR trae el código y con él se identifica la solicitud.
+    // Result: igual que obtenerSolicitud. Si el código no corresponde a ninguna solicitud
+    // trae SolicitudNoEncontradaException; si falló la base de datos trae ese otro error.
+    suspend fun buscarPorCodigo(codigo: String): Result<SolicitudEntity> {
+        return try {
+            // trim() quita espacios sobrantes y uppercase() iguala las mayúsculas,
+            // porque los códigos se generan siempre en mayúsculas
+            val solicitud = dao.obtenerPorCodigo(codigo.trim().uppercase())
+            if (solicitud != null) {
+                Result.success(solicitud)
+            } else {
+                Result.failure(SolicitudNoEncontradaException())
+            }
+        } catch (e: CancellationException) {
+            // Si la corrutina se cancela, hay que dejar pasar esa señal y no tratarla como error
+            throw e
+        } catch (e: Exception) {
+            // Cualquier otro fallo se devuelve como error controlado
+            Result.failure(e)
+        }
+    }
+
     // Crea la solicitud y la guarda en Room.
     // Aquí se aplican las reglas del negocio: código único, fecha y estado inicial.
     // Devuelve Result: si salió bien trae el código generado; si falló, trae el error.

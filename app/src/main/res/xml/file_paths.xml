@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dice qué carpeta puede compartir el FileProvider.
+     files-path = la carpeta "files" privada de la app.
+     Solo se comparte la subcarpeta "evidencias", donde irán las fotos. -->
+<paths>
+    <files-path
+        name="evidencias"
+        path="evidencias/" />
+</paths>

@@ -28,6 +28,13 @@ interface SolicitudDao {
     @Query("SELECT * FROM solicitudes WHERE id = :id LIMIT 1")
     suspend fun obtenerPorId(id: Int): SolicitudEntity?
 
+    // Busca UNA solicitud por su código visible (por ejemplo "SOL-1A2B3C4D").
+    // Es lo que usa el escáner QR: el QR contiene ese código y con él se encuentra
+    // la solicitud guardada. Devuelve null si ninguna solicitud tiene ese código.
+    // No agrega columnas ni cambia la tabla, así que la versión de la base de datos sigue en 2.
+    @Query("SELECT * FROM solicitudes WHERE codigo = :codigo LIMIT 1")
+    suspend fun obtenerPorCodigo(codigo: String): SolicitudEntity?
+
     // Guarda los cambios de una solicitud que ya existe.
     // Room busca la fila con el mismo id y reemplaza sus columnas.
     // Devuelve cuántas filas cambió: 1 si salió bien, 0 si el id no existía.

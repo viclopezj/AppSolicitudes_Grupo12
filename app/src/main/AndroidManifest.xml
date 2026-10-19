@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permiso para usar la cámara (sirve para el escáner QR y para tomar la foto) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- La cámara no es obligatoria: la app puede instalarse en equipos sin ella -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -11,6 +17,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppSolicitudes_Grupo12">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -23,6 +30,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- FileProvider: permite que la app de cámara del teléfono guarde la foto
+             dentro de la carpeta privada de nuestra app, sin dar acceso al resto de archivos.
+             authorities debe ser único; usamos el id de la app + ".fileprovider".
+             La Activity de la cámara no lo necesita: lo usará TakePicture() más adelante. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

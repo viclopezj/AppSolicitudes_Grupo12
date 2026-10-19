@@ -60,6 +60,19 @@ dependencies {
     // Íconos básicos (el + de la lista y la flecha de volver)
     implementation(libs.androidx.compose.material.icons.core)
 
+    // --- Cámara (QR) ---
+    val cameraxVersion = "1.4.2"
+    implementation("androidx.camera:camera-core:$cameraxVersion")       // Base de CameraX
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")    // Conecta CameraX con la cámara del teléfono
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")  // Abre/cierra la cámara según el ciclo de vida
+    implementation("androidx.camera:camera-view:$cameraxVersion")       // PreviewView: muestra la imagen de la cámara
+
+    // ML Kit: lee el código QR desde la imagen de la cámara
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // ZXing core: GENERA el QR de cada solicitud (para poder probar el escáner)
+    implementation("com.google.zxing:core:3.5.3")
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
