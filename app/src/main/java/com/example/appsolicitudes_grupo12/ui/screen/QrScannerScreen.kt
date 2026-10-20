@@ -90,6 +90,7 @@ fun QrScannerScreen(
 
     // Scaffold = estructura base: barra superior y contenido
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Escanear solicitud") },

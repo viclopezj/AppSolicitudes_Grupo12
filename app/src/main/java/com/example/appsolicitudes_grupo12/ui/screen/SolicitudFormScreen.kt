@@ -201,6 +201,7 @@ fun SolicitudFormScreen(
 
     // Scaffold = estructura base: barra superior, contenido y zona de mensajes
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Nueva solicitud") },
