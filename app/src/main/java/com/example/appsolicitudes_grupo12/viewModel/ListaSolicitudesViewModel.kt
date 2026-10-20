@@ -3,6 +3,7 @@ package com.example.appsolicitudes_grupo12.viewModel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
@@ -23,7 +24,13 @@ import kotlinx.coroutines.launch
 // y el orden elegidos, y las convierte en uno de los 4 estados: Loading, Success, Empty o Error.
 // Es independiente de SolicitudViewModel (el del formulario), pero ambos usan
 // la MISMA base de datos, porque AppDatabase entrega siempre una única instancia.
-class ListaSolicitudesViewModel(app: Application) : AndroidViewModel(app) {
+class ListaSolicitudesViewModel(
+    app: Application,
+    savedStateHandle: SavedStateHandle
+) : AndroidViewModel(app) {
+
+    private val usuarioId = savedStateHandle.get<Int>("usuarioId") ?: -1
+    private val rol = savedStateHandle.get<String>("rol") ?: ""
 
     // Cadena de acceso a datos: Database -> DAO -> Repository
     private val repositorio = SolicitudRepository(
@@ -65,7 +72,7 @@ class ListaSolicitudesViewModel(app: Application) : AndroidViewModel(app) {
             //   - la lista de Room (cuando se guarda o edita una solicitud)
             //   - el filtro (cuando la persona elige otra categoría u otro orden)
             // Así la lista se actualiza sola en los dos casos.
-            combine(repositorio.obtenerSolicitudes(), _filtro) { lista, filtro ->
+            combine(repositorio.obtenerSolicitudes(usuarioId, rol), _filtro) { lista, filtro ->
                 lista to filtro
             }
                 .catch { error ->

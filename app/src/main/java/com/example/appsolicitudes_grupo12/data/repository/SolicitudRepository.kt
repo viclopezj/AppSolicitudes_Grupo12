@@ -19,16 +19,21 @@ class SolicitudRepository(private val dao: SolicitudDao) {
 
     // Entrega la lista de solicitudes guardadas.
     // Es un Flow: cada vez que se guarda o se modifica una, la lista llega actualizada.
-    fun obtenerSolicitudes(): Flow<List<SolicitudEntity>> {
+    fun obtenerSolicitudes(usuarioId: Int, rol: String): Flow<List<SolicitudEntity>> {
+        return dao.obtenerVisibles(usuarioId, rol)
+    }
+
+    // Se usa solamente en el área administrativa de asignaciones.
+    fun obtenerTodasParaAdministracion(): Flow<List<SolicitudEntity>> {
         return dao.obtenerTodas()
     }
 
     // Busca UNA solicitud por su id (para la pantalla de detalle).
     // Result: si salió bien trae la solicitud; si no existe trae SolicitudNoEncontradaException;
     // si falló la base de datos trae ese otro error.
-    suspend fun obtenerSolicitud(id: Int): Result<SolicitudEntity> {
+    suspend fun obtenerSolicitud(id: Int, usuarioId: Int, rol: String): Result<SolicitudEntity> {
         return try {
-            val solicitud = dao.obtenerPorId(id)
+            val solicitud = dao.obtenerPorId(id, usuarioId, rol)
             if (solicitud != null) {
                 Result.success(solicitud)
             } else {
@@ -47,11 +52,11 @@ class SolicitudRepository(private val dao: SolicitudDao) {
     // Es lo que usa el escáner QR: el QR trae el código y con él se identifica la solicitud.
     // Result: igual que obtenerSolicitud. Si el código no corresponde a ninguna solicitud
     // trae SolicitudNoEncontradaException; si falló la base de datos trae ese otro error.
-    suspend fun buscarPorCodigo(codigo: String): Result<SolicitudEntity> {
+    suspend fun buscarPorCodigo(codigo: String, usuarioId: Int, rol: String): Result<SolicitudEntity> {
         return try {
             // trim() quita espacios sobrantes y uppercase() iguala las mayúsculas,
             // porque los códigos se generan siempre en mayúsculas
-            val solicitud = dao.obtenerPorCodigo(codigo.trim().uppercase())
+            val solicitud = dao.obtenerPorCodigoVisible(codigo.trim().uppercase(), usuarioId, rol)
             if (solicitud != null) {
                 Result.success(solicitud)
             } else {
@@ -76,6 +81,7 @@ class SolicitudRepository(private val dao: SolicitudDao) {
         descripcion: String,
         categoria: String,
         servicio: String,
+        creadorUsuarioId: Int,
         evidenciaUri: String? = null
     ): Result<SolicitudEntity> {
         return try {
@@ -87,7 +93,8 @@ class SolicitudRepository(private val dao: SolicitudDao) {
                 servicio = servicio.trim(),
                 evidenciaUri = evidenciaUri,
                 estado = "Recibida",                       // todo comienza como "Recibida"
-                fechaCreacion = System.currentTimeMillis() // fecha y hora actuales
+                fechaCreacion = System.currentTimeMillis(), // fecha y hora actuales
+                creadoPorUsuarioId = creadorUsuarioId
             )
             // insertar() devuelve el id que Room le asignó; se agrega a la copia que se entrega
             val idNuevo = dao.insertar(solicitud)
@@ -111,6 +118,8 @@ class SolicitudRepository(private val dao: SolicitudDao) {
     // Devuelve Result: si salió bien no trae nada (Unit); si falló, trae el error.
     suspend fun actualizarSolicitud(
         id: Int,
+        usuarioId: Int,
+        rol: String,
         titulo: String,
         descripcion: String,
         categoria: String,
@@ -118,7 +127,11 @@ class SolicitudRepository(private val dao: SolicitudDao) {
     ): Result<Unit> {
         return try {
             // Se lee la solicitud actual; si no existe, no hay nada que actualizar
-            val actual = dao.obtenerPorId(id)
+            if (rol == "tecnico") {
+                return Result.failure(SolicitudNoEncontradaException())
+            }
+
+            val actual = dao.obtenerPorId(id, usuarioId, rol)
                 ?: return Result.failure(SolicitudNoEncontradaException())
 
             // copy() crea una copia con los 4 campos nuevos; el resto queda igual
@@ -141,6 +154,19 @@ class SolicitudRepository(private val dao: SolicitudDao) {
             throw e
         } catch (e: Exception) {
             // Cualquier otro fallo se devuelve como error controlado
+            Result.failure(e)
+        }
+    }
+
+    // El DAO solo actualiza si el id seleccionado pertenece a un usuario técnico.
+    suspend fun asignarTecnico(solicitudId: Int, tecnicoId: Int): Result<Unit> {
+        return try {
+            val filas = dao.asignarTecnico(solicitudId, tecnicoId)
+            if (filas > 0) Result.success(Unit)
+            else Result.failure(SolicitudNoEncontradaException())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

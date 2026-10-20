@@ -95,7 +95,12 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                 .onSuccess { usuario ->
                     // Estado Success: guardamos el nombre; la pantalla lo detecta y navega
                     _estado.update {
-                        it.copy(cargando = false, nombreAutenticado = usuario.nombre)
+                        it.copy(
+                            cargando = false,
+                            nombreAutenticado = usuario.nombre,
+                            usuarioIdAutenticado = usuario.id,
+                            rolAutenticado = usuario.rol
+                        )
                     }
                 }
                 .onFailure { error ->

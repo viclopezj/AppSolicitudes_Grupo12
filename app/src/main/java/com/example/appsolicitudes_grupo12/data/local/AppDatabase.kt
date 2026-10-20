@@ -4,16 +4,17 @@ import android.content.Context
 import androidx.room3.Database
 import androidx.room3.Room
 import androidx.room3.RoomDatabase
+import androidx.room3.migration.Migration
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.async.executeSQL
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 
 // Punto de entrada a Room. Conecta las tablas (Entity) con sus DAO
 // y crea el archivo de base de datos en el teléfono.
-// version = 2: antes era 1. Subimos el número porque se agregó una tabla nueva
-// (usuarios). Si cambias las columnas más adelante, hay que subirlo otra vez
-// (o desinstalar la app mientras desarrollan).
+// Version 3 agrega quién creó y a quién se asignó cada solicitud.
 @Database(
     entities = [SolicitudEntity::class, UsuarioEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,11 +37,37 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     "solicitudes_database"
                 )
+                    // Conserva los datos guardados en la versión 2 y agrega las columnas nuevas.
+                    .addMigrations(MIGRACION_2_3)
                     // Room 3 exige indicar el driver de SQLite
                     .setDriver(BundledSQLiteDriver())
                     .build()
                 INSTANCIA = instancia
                 instancia
+            }
+        }
+
+        // Vincula con el cliente demo las solicitudes creadas antes de tener perfiles.
+        // Si esa cuenta no existe, las solicitudes conservan sus campos nulos y siguen
+        // disponibles para el administrador. No se eliminan filas durante la migración.
+        private val MIGRACION_2_3 = object : Migration(2, 3) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                connection.executeSQL(
+                    "ALTER TABLE solicitudes ADD COLUMN creadoPorUsuarioId INTEGER"
+                )
+                connection.executeSQL(
+                    "ALTER TABLE solicitudes ADD COLUMN asignadoAUsuarioId INTEGER"
+                )
+                connection.executeSQL(
+                    "UPDATE usuarios SET rol = 'cliente', nombre = 'Cliente Demo' " +
+                            "WHERE nombreUsuario = 'demo' AND rol = 'general'"
+                )
+                connection.executeSQL(
+                    "UPDATE solicitudes SET creadoPorUsuarioId = " +
+                            "(SELECT id FROM usuarios WHERE nombreUsuario = 'demo' LIMIT 1) " +
+                            "WHERE creadoPorUsuarioId IS NULL AND EXISTS " +
+                            "(SELECT 1 FROM usuarios WHERE nombreUsuario = 'demo')"
+                )
             }
         }
     }

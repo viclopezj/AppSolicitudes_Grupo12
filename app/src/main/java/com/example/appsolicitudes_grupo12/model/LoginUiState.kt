@@ -17,5 +17,7 @@ data class LoginUiState(
     // --- Estado del ingreso ---
     val cargando: Boolean = false,           // true mientras se revisan las credenciales (Loading)
     val errorLogin: String? = null,          // mensaje si el ingreso falló (Error)
-    val nombreAutenticado: String? = null    // si trae un nombre, el login salió bien (Success)
+    val nombreAutenticado: String? = null,   // si trae un nombre, el login salió bien (Success)
+    val usuarioIdAutenticado: Int? = null,
+    val rolAutenticado: String? = null
 )

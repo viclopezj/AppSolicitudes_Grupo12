@@ -42,8 +42,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun MenuScreen(
     nombreUsuario: String,
+    rolUsuario: String,
     onIrALista: () -> Unit = {},
     onIrAFormulario: () -> Unit = {},
+    onIrAAsignaciones: () -> Unit = {},
     onCerrarSesion: () -> Unit = {}
 ) {
     // Recuerda si el menú lateral está abierto o cerrado
@@ -70,12 +72,17 @@ fun MenuScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Text(
+                        text = "Perfil: ${etiquetaRol(rolUsuario)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 // ---------- Opciones ----------
                 // En cada una: primero se cierra el menú y luego se avisa a la navegación
                 NavigationDrawerItem(
-                    label = { Text("Mis solicitudes") },
+                    label = { Text(if (rolUsuario == "cliente") "Mis solicitudes" else "Solicitudes") },
                     selected = false,
                     onClick = {
                         alcance.launch { estadoMenu.close() }
@@ -89,20 +96,33 @@ fun MenuScreen(
                     }
                 )
 
-                NavigationDrawerItem(
-                    label = { Text("Nueva solicitud") },
-                    selected = false,
-                    onClick = {
-                        alcance.launch { estadoMenu.close() }
-                        onIrAFormulario()
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null
-                        )
-                    }
-                )
+                if (rolUsuario == "cliente") {
+                    NavigationDrawerItem(
+                        label = { Text("Nueva solicitud") },
+                        selected = false,
+                        onClick = {
+                            alcance.launch { estadoMenu.close() }
+                            onIrAFormulario()
+                        },
+                        icon = {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null)
+                        }
+                    )
+                }
+
+                if (rolUsuario == "administrador") {
+                    NavigationDrawerItem(
+                        label = { Text("Asignar solicitudes") },
+                        selected = false,
+                        onClick = {
+                            alcance.launch { estadoMenu.close() }
+                            onIrAAsignaciones()
+                        },
+                        icon = {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.List, contentDescription = null)
+                        }
+                    )
+                }
 
                 NavigationDrawerItem(
                     label = { Text("Cerrar sesión") },
@@ -153,6 +173,11 @@ fun MenuScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
+                    text = "Perfil: ${etiquetaRol(rolUsuario)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
                     text = "¿Qué quieres hacer?",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -166,18 +191,37 @@ fun MenuScreen(
                     onClick = onIrALista,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Ver mis solicitudes")
+                    Text(if (rolUsuario == "cliente") "Ver mis solicitudes" else "Ver solicitudes")
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                if (rolUsuario == "cliente") {
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                OutlinedButton(
-                    onClick = onIrAFormulario,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Registrar nueva solicitud")
+                    OutlinedButton(
+                        onClick = onIrAFormulario,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Registrar nueva solicitud")
+                    }
+                }
+
+                if (rolUsuario == "administrador") {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onIrAAsignaciones,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Asignar solicitudes a técnicos")
+                    }
                 }
             }
         }
     }
+}
+
+private fun etiquetaRol(rol: String): String = when (rol) {
+    "administrador" -> "Administrador"
+    "tecnico" -> "Técnico"
+    "cliente" -> "Cliente"
+    else -> "Sin perfil"
 }

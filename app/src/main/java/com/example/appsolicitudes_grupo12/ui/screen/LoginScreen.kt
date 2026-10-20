@@ -37,20 +37,24 @@ import com.example.appsolicitudes_grupo12.viewModel.LoginViewModel
 
 // Pantalla de inicio de sesión.
 // Solo MUESTRA datos y ENVÍA eventos al ViewModel: no valida ni revisa credenciales por su cuenta.
-// onLoginExitoso: lo que debe pasar cuando el ingreso salió bien. Recibe el nombre
-// de la persona (la navegación lo usa para ir al menú).
+// onLoginExitoso: entrega la identidad autenticada a la navegación.
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = viewModel(),
-    onLoginExitoso: (String) -> Unit = {}
+    onLoginExitoso: (String, Int, String) -> Unit = { _, _, _ -> }
 ) {
     // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
 
     // Se ejecuta cuando el ViewModel guarda un nombre autenticado (login correcto):
     // avisa a la navegación para pasar al menú
-    LaunchedEffect(estado.nombreAutenticado) {
-        estado.nombreAutenticado?.let { nombre -> onLoginExitoso(nombre) }
+    LaunchedEffect(estado.nombreAutenticado, estado.usuarioIdAutenticado, estado.rolAutenticado) {
+        val nombre = estado.nombreAutenticado
+        val usuarioId = estado.usuarioIdAutenticado
+        val rol = estado.rolAutenticado
+        if (nombre != null && usuarioId != null && rol != null) {
+            onLoginExitoso(nombre, usuarioId, rol)
+        }
     }
 
     Scaffold { paddingInterno ->
@@ -157,7 +161,7 @@ fun LoginScreen(
 
                 // Ayuda para la demostración. Son datos ficticios.
                 Text(
-                    text = "Cuenta de prueba: demo / 1234",
+                    text = "Cliente: demo / 1234  •  Administrador: admin / 1234  •  Técnico: tecnico / 1234",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

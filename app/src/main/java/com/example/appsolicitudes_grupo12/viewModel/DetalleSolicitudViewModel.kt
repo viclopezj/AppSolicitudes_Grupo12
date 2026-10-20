@@ -35,6 +35,12 @@ class DetalleSolicitudViewModel(
     // Si por alguna razón no llega, se usa -1: no existe ninguna solicitud con ese id,
     // así que la pantalla mostrará "No se encontró la solicitud" en vez de cerrarse.
     private val id: Int = savedStateHandle.get<Int>("id") ?: -1
+    private val usuarioId: Int = savedStateHandle.get<Int>("usuarioId") ?: -1
+    private val rol: String = savedStateHandle.get<String>("rol") ?: ""
+
+    // Los clientes editan sus propias solicitudes y el administrador puede corregir cualquiera.
+    val puedeEditar: Boolean
+        get() = rol == "administrador" || rol == "cliente"
 
     // Estado privado y modificable. Parte en Loading mientras llega la solicitud.
     private val _estado = MutableStateFlow<DetalleSolicitudUiState>(
@@ -59,7 +65,7 @@ class DetalleSolicitudViewModel(
 
         // launch inicia una corrutina: la lectura ocurre sin congelar la pantalla
         viewModelScope.launch {
-            repositorio.obtenerSolicitud(id)
+            repositorio.obtenerSolicitud(id, usuarioId, rol)
                 .onSuccess { solicitud ->
                     // Estado Success en modo lectura (edicion = null)
                     _estado.value = DetalleSolicitudUiState.Success(solicitud)
@@ -86,6 +92,7 @@ class DetalleSolicitudViewModel(
 
     // Pasa al modo edición. Los campos parten con los valores que ya están guardados.
     fun iniciarEdicion() {
+        if (!puedeEditar) return
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return
         _estado.value = actual.copy(
             edicion = EdicionSolicitud(
@@ -212,6 +219,8 @@ class DetalleSolicitudViewModel(
 
             val resultado = repositorio.actualizarSolicitud(
                 id = id,
+                usuarioId = usuarioId,
+                rol = rol,
                 titulo = datos.titulo,
                 descripcion = datos.descripcion,
                 categoria = datos.categoria,
@@ -241,7 +250,7 @@ class DetalleSolicitudViewModel(
     // Lee la solicitud ya modificada y vuelve al modo lectura.
     // No pasa por Loading para que la pantalla no parpadee.
     private suspend fun cargarDespuesDeGuardar() {
-        repositorio.obtenerSolicitud(id)
+        repositorio.obtenerSolicitud(id, usuarioId, rol)
             .onSuccess { solicitud ->
                 _estado.value = DetalleSolicitudUiState.Success(solicitud)
             }

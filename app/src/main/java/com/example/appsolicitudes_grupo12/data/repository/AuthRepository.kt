@@ -19,7 +19,7 @@ class AuthRepository(private val dao: UsuarioDao) {
     // si falló trae el error, ya sea CredencialesInvalidasException u otro fallo técnico.
     suspend fun iniciarSesion(nombreUsuario: String, contrasena: String): Result<UsuarioEntity> {
         return try {
-            // Si la tabla está vacía (primera vez que se abre la app), se crea el usuario demo
+            // Asegura que las tres cuentas de prueba existan antes de validar el ingreso.
             crearUsuarioDemoSiHaceFalta()
 
             val usuario = dao.buscarPorNombre(nombreUsuario.trim())
@@ -40,18 +40,34 @@ class AuthRepository(private val dao: UsuarioDao) {
         }
     }
 
-    // Inserta el usuario genérico ficticio solo si todavía no hay usuarios guardados.
-    // Más adelante aquí se crearán los tres perfiles: cliente, administrador y técnico.
+    // Crea cuentas ficticias de prueba para los tres perfiles si todavía no existen.
+    // Se revisa cada nombre por separado para conservar los usuarios que ya estén en Room.
     private suspend fun crearUsuarioDemoSiHaceFalta() {
-        if (dao.contar() == 0) {
-            dao.insertar(
-                UsuarioEntity(
-                    nombreUsuario = "demo",
-                    contrasena = "1234",
-                    nombre = "Usuario Demo",
-                    rol = "general"
-                )
+        val usuariosDemo = listOf(
+            UsuarioEntity(
+                nombreUsuario = "demo",
+                contrasena = "1234",
+                nombre = "Cliente Demo",
+                rol = "cliente"
+            ),
+            UsuarioEntity(
+                nombreUsuario = "admin",
+                contrasena = "1234",
+                nombre = "Administradora Demo",
+                rol = "administrador"
+            ),
+            UsuarioEntity(
+                nombreUsuario = "tecnico",
+                contrasena = "1234",
+                nombre = "Técnico Demo",
+                rol = "tecnico"
             )
+        )
+
+        usuariosDemo.forEach { usuarioDemo ->
+            if (dao.buscarPorNombre(usuarioDemo.nombreUsuario) == null) {
+                dao.insertar(usuarioDemo)
+            }
         }
     }
 }

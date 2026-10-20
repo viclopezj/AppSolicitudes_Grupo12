@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.data.repository.SolicitudRepository
@@ -22,7 +23,13 @@ import java.io.File
 // ViewModel del formulario. Mantiene el estado, valida los datos y pide el guardado.
 // No conoce nada de Compose: la pantalla solo lo observa y le envía eventos.
 // AndroidViewModel recibe el "Application", que necesitamos para crear la base de datos.
-class SolicitudViewModel(app: Application) : AndroidViewModel(app) {
+class SolicitudViewModel(
+    app: Application,
+    savedStateHandle: SavedStateHandle
+) : AndroidViewModel(app) {
+
+    private val usuarioId = savedStateHandle.get<Int>("usuarioId") ?: -1
+    private val rol = savedStateHandle.get<String>("rol") ?: ""
 
     // Cadena de acceso a datos: Database -> DAO -> Repository
     private val repositorio = SolicitudRepository(
@@ -199,6 +206,13 @@ class SolicitudViewModel(app: Application) : AndroidViewModel(app) {
     // Valida y, solo si todo está bien, guarda la solicitud.
     // La pantalla únicamente llama a esta función al pulsar "Registrar".
     fun guardar() {
+        if (usuarioId <= 0 || rol != "cliente") {
+            _estado.update {
+                it.copy(errorGuardado = "Solo un cliente autenticado puede registrar solicitudes.")
+            }
+            return
+        }
+
         // Evita guardar dos veces si la persona pulsa el botón repetidamente,
         // y también guardar mientras todavía se está copiando una foto
         if (_estado.value.guardando || _estado.value.cargandoFoto) return
@@ -218,6 +232,7 @@ class SolicitudViewModel(app: Application) : AndroidViewModel(app) {
                 descripcion = datos.descripcion,
                 categoria = datos.categoria,
                 servicio = datos.servicio,
+                creadorUsuarioId = usuarioId,
                 evidenciaUri = datos.evidenciaUri   // la foto elegida, o null si no hay
             )
 

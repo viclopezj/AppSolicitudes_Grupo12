@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.appsolicitudes_grupo12.ui.screen.AsignarSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.DetalleSolicitudScreen
 import com.example.appsolicitudes_grupo12.ui.screen.ListaSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
@@ -14,74 +15,69 @@ import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
 import com.example.appsolicitudes_grupo12.ui.screen.QrScannerScreen
 import com.example.appsolicitudes_grupo12.ui.screen.SolicitudFormScreen
 
-// Nombres de las rutas (las "direcciones" de cada pantalla).
-// Se guardan como constantes para no equivocarse al escribirlas en varios lugares.
 object Rutas {
     const val LOGIN = "login"
-    const val LISTA = "lista"
-    const val FORMULARIO = "formulario"
+    const val MENU = "menu/{nombre}/{usuarioId}/{rol}"
+    const val LISTA = "lista/{usuarioId}/{rol}"
+    const val FORMULARIO = "formulario/{usuarioId}/{rol}"
+    const val QR = "qr/{usuarioId}/{rol}"
+    const val ASIGNACIONES = "asignaciones/{usuarioId}/{rol}"
+    const val DETALLE = "detalle/{id}/{usuarioId}/{rol}"
 
-    // Pantalla del escáner QR. Se abre desde la barra superior de la lista.
-    const val QR = "qr"
+    fun menu(nombre: String, usuarioId: Int, rol: String) =
+        "menu/${Uri.encode(nombre)}/$usuarioId/${Uri.encode(rol)}"
 
-    // La ruta del menú lleva un dato: el nombre de la persona. {nombre} es el hueco.
-    const val MENU = "menu/{nombre}"
+    fun lista(usuarioId: Int, rol: String) = "lista/$usuarioId/${Uri.encode(rol)}"
+    fun formulario(usuarioId: Int, rol: String) = "formulario/$usuarioId/${Uri.encode(rol)}"
+    fun qr(usuarioId: Int, rol: String) = "qr/$usuarioId/${Uri.encode(rol)}"
+    fun asignaciones(usuarioId: Int, rol: String) =
+        "asignaciones/$usuarioId/${Uri.encode(rol)}"
 
-    // La ruta del detalle lleva un dato: el id de la solicitud. {id} es el hueco.
-    // El nombre "id" debe ser igual al que lee DetalleSolicitudViewModel.
-    const val DETALLE = "detalle/{id}"
-
-    // Arma la ruta real del menú, por ejemplo "menu/Usuario%20Demo".
-    // Uri.encode convierte los espacios y símbolos para que la ruta sea válida.
-    fun menuConNombre(nombre: String): String = "menu/${Uri.encode(nombre)}"
-
-    // Arma la ruta real del detalle, por ejemplo "detalle/3".
-    fun detalleConId(id: Int): String = "detalle/$id"
+    fun detalle(id: Int, usuarioId: Int, rol: String) =
+        "detalle/$id/$usuarioId/${Uri.encode(rol)}"
 }
 
-// Define qué pantallas existen y cómo se llega de una a otra.
-// MainActivity solo llama a esta función.
-// Flujo: Login -> Menú -> Lista -> Formulario / Detalle / Escáner QR.
 @Composable
 fun AppNavigation() {
-
-    // El NavController es quien ejecuta los cambios de pantalla.
-    // rememberNavController lo conserva mientras la app está abierta.
     val navController = rememberNavController()
 
-    // NavHost es el contenedor donde se dibuja la pantalla actual.
-    // startDestination indica cuál se muestra primero: el login.
-    NavHost(
-        navController = navController,
-        startDestination = Rutas.LOGIN
-    ) {
-
-        // Pantalla 1: login
+    NavHost(navController = navController, startDestination = Rutas.LOGIN) {
         composable(Rutas.LOGIN) {
             LoginScreen(
-                // Si las credenciales son correctas, se va al menú con el nombre de la persona
-                onLoginExitoso = { nombre ->
-                    navController.navigate(Rutas.menuConNombre(nombre)) {
-                        // Se borra el login del historial: con "atrás" no se vuelve a él
+                onLoginExitoso = { nombre, usuarioId, rol ->
+                    navController.navigate(Rutas.menu(nombre, usuarioId, rol)) {
                         popUpTo(Rutas.LOGIN) { inclusive = true }
                     }
                 }
             )
         }
 
-        // Pantalla 2: menú (con menú lateral)
         composable(
             route = Rutas.MENU,
-            arguments = listOf(navArgument("nombre") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("nombre") { type = NavType.StringType },
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
+            )
         ) { entrada ->
-            // Se lee el nombre que viajaba en la ruta
-            val nombre = entrada.arguments?.getString("nombre") ?: ""
+            val nombre = entrada.arguments?.getString("nombre").orEmpty()
+            val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
+            val rol = entrada.arguments?.getString("rol").orEmpty()
 
             MenuScreen(
                 nombreUsuario = nombre,
-                onIrALista = { navController.navigate(Rutas.LISTA) },
-                onIrAFormulario = { navController.navigate(Rutas.FORMULARIO) },
-                // Cerrar sesión: vuelve al login y borra el menú del historial
+                rolUsuario = rol,
+                onIrALista = { navController.navigate(Rutas.lista(usuarioId, rol)) },
+                onIrAFormulario = {
+                    if (rol == "cliente") {
+                        navController.navigate(Rutas.formulario(usuarioId, rol))
+                    }
+                },
+                onIrAAsignaciones = {
+                    if (rol == "administrador") {
+                        navController.navigate(Rutas.asignaciones(usuarioId, rol))
+                    }
+                },
                 onCerrarSesion = {
                     navController.navigate(Rutas.LOGIN) {
                         popUpTo(Rutas.MENU) { inclusive = true }
@@ -90,55 +86,88 @@ fun AppNavigation() {
             )
         }
 
-        // Pantalla 3: lista de solicitudes
-        composable(Rutas.LISTA) {
-            ListaSolicitudesScreen(
-                // El botón + lleva al formulario
-                onAgregarClick = { navController.navigate(Rutas.FORMULARIO) },
-                // Tocar una tarjeta lleva al detalle de esa solicitud
-                onSolicitudClick = { id -> navController.navigate(Rutas.detalleConId(id)) },
-                // El botón "Escanear QR" de la barra superior abre el escáner
-                onEscanearClick = { navController.navigate(Rutas.QR) }
+        composable(
+            route = Rutas.LISTA,
+            arguments = listOf(
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
             )
-        }
-
-        // Pantalla 4: formulario para crear una solicitud
-        composable(Rutas.FORMULARIO) {
-            SolicitudFormScreen(
-                // Al guardar, se cierra el formulario y se muestra la lista.
-                // Funciona igual si se entró desde el menú o desde la lista.
-                onGuardado = {
-                    navController.navigate(Rutas.LISTA) {
-                        popUpTo(Rutas.FORMULARIO) { inclusive = true }
-                        launchSingleTop = true   // si la lista ya está arriba, no la duplica
+        ) { entrada ->
+            val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
+            val rol = entrada.arguments?.getString("rol").orEmpty()
+            ListaSolicitudesScreen(
+                rolUsuario = rol,
+                onAgregarClick = {
+                    if (rol == "cliente") {
+                        navController.navigate(Rutas.formulario(usuarioId, rol))
                     }
                 },
-                // La flecha de la barra superior vuelve a la pantalla anterior
+                onSolicitudClick = { id ->
+                    navController.navigate(Rutas.detalle(id, usuarioId, rol))
+                },
+                onEscanearClick = { navController.navigate(Rutas.qr(usuarioId, rol)) }
+            )
+        }
+
+        composable(
+            route = Rutas.FORMULARIO,
+            arguments = listOf(
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
+            )
+        ) { entrada ->
+            val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
+            val rol = entrada.arguments?.getString("rol").orEmpty()
+            SolicitudFormScreen(
+                onGuardado = {
+                    navController.navigate(Rutas.lista(usuarioId, rol)) {
+                        popUpTo(Rutas.FORMULARIO) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                },
                 onVolver = { navController.popBackStack() }
             )
         }
 
-        // Pantalla 5: detalle (y edición) de una solicitud
         composable(
             route = Rutas.DETALLE,
-            // IntType: el id viaja como número. DetalleSolicitudViewModel lo recibe
-            // con savedStateHandle.get<Int>("id"), por eso el tipo debe coincidir.
-            arguments = listOf(navArgument("id") { type = NavType.IntType })
+            arguments = listOf(
+                navArgument("id") { type = NavType.IntType },
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
+            )
         ) {
-            DetalleSolicitudScreen(
-                // La flecha (o el botón Volver) regresa a la pantalla anterior
-                onVolver = { navController.popBackStack() }
+            DetalleSolicitudScreen(onVolver = { navController.popBackStack() })
+        }
+
+        composable(
+            route = Rutas.QR,
+            arguments = listOf(
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
+            )
+        ) { entrada ->
+            val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
+            val rol = entrada.arguments?.getString("rol").orEmpty()
+            QrScannerScreen(
+                onVolver = { navController.popBackStack() },
+                onAbrirDetalle = { id ->
+                    navController.navigate(Rutas.detalle(id, usuarioId, rol))
+                }
             )
         }
 
-        // Pantalla 6: escáner QR
-        composable(Rutas.QR) {
-            QrScannerScreen(
-                // La flecha de la barra superior vuelve a la lista
-                onVolver = { navController.popBackStack() },
-                // "Abrir detalle" lleva a la misma pantalla de detalle de siempre.
-                // Al volver con "atrás" se regresa al escáner.
-                onAbrirDetalle = { id -> navController.navigate(Rutas.detalleConId(id)) }
+        composable(
+            route = Rutas.ASIGNACIONES,
+            arguments = listOf(
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
+            )
+        ) { entrada ->
+            val rol = entrada.arguments?.getString("rol").orEmpty()
+            AsignarSolicitudesScreen(
+                puedeAdministrar = rol == "administrador",
+                onVolver = { navController.popBackStack() }
             )
         }
     }

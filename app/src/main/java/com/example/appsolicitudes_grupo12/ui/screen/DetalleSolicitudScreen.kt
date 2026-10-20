@@ -125,6 +125,7 @@ fun DetalleSolicitudScreen(
                         // Modo lectura
                         DetalleLectura(
                             solicitud = actual.solicitud,
+                            puedeEditar = viewModel.puedeEditar,
                             onEditar = viewModel::iniciarEdicion
                         )
                     } else {
@@ -215,6 +216,7 @@ private fun DetalleError(
 @Composable
 private fun DetalleLectura(
     solicitud: SolicitudEntity,
+    puedeEditar: Boolean,
     onEditar: () -> Unit
 ) {
     // Column con scroll: si la descripción es larga, se puede deslizar
@@ -270,11 +272,13 @@ private fun DetalleLectura(
             )
         }
 
-        Button(
-            onClick = onEditar,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Editar solicitud")
+        if (puedeEditar) {
+            Button(
+                onClick = onEditar,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Editar solicitud")
+            }
         }
     }
 }

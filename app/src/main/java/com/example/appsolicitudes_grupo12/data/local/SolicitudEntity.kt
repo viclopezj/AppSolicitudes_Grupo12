@@ -33,5 +33,12 @@ data class SolicitudEntity(
 
     // Fecha y hora de creación en milisegundos (System.currentTimeMillis()).
     // Usamos Long para no necesitar conversores de fecha
-    val fechaCreacion: Long
+    val fechaCreacion: Long,
+
+    // Usuario que registró la solicitud. Los registros anteriores a la versión 3
+    // quedan en null; los nuevos siempre reciben el id del cliente que inició sesión.
+    val creadoPorUsuarioId: Int? = null,
+
+    // Técnico asignado por el administrador. null significa que aún no se asigna.
+    val asignadoAUsuarioId: Int? = null
 )

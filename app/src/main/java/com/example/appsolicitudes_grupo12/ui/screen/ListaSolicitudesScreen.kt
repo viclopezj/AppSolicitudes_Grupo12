@@ -60,6 +60,7 @@ import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 @Composable
 fun ListaSolicitudesScreen(
     viewModel: ListaSolicitudesViewModel = viewModel(),
+    rolUsuario: String,
     onAgregarClick: () -> Unit = {},
     onSolicitudClick: (Int) -> Unit = {},
     onEscanearClick: () -> Unit = {}
@@ -83,11 +84,13 @@ fun ListaSolicitudesScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAgregarClick) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Nueva solicitud"   // descripción para lectores de pantalla
-                )
+            if (rolUsuario == "cliente") {
+                FloatingActionButton(onClick = onAgregarClick) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Nueva solicitud"
+                    )
+                }
             }
         }
     ) { paddingInterno ->

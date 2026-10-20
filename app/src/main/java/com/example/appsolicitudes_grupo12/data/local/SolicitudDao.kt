@@ -16,28 +16,52 @@ interface SolicitudDao {
     @Insert
     suspend fun insertar(solicitud: SolicitudEntity): Long
 
-    // Devuelve todas las solicitudes, las más recientes primero.
-    // Al devolver Flow, la lista se actualiza sola cada vez que se guarda
-    // o se modifica una solicitud (lo usa ListaSolicitudesScreen).
+    // El administrador ve todas; el cliente solo las que creó y el técnico
+    // solo las que tiene asignadas. Room vuelve a emitir al cambiar los datos.
+    @Query(
+        "SELECT * FROM solicitudes " +
+                "WHERE (:rol = 'administrador') " +
+                "OR (:rol = 'cliente' AND creadoPorUsuarioId = :usuarioId) " +
+                "OR (:rol = 'tecnico' AND asignadoAUsuarioId = :usuarioId) " +
+                "ORDER BY fechaCreacion DESC"
+    )
+    fun obtenerVisibles(usuarioId: Int, rol: String): Flow<List<SolicitudEntity>>
+
+    // Datos para la pantalla de asignación del administrador.
     @Query("SELECT * FROM solicitudes ORDER BY fechaCreacion DESC")
     fun obtenerTodas(): Flow<List<SolicitudEntity>>
 
     // Busca UNA solicitud por su id (el que viaja en la ruta del detalle).
     // Devuelve null (el "?" del tipo) si no existe ninguna con ese id.
     // ":id" se reemplaza por el valor del parámetro "id" de la función.
-    @Query("SELECT * FROM solicitudes WHERE id = :id LIMIT 1")
-    suspend fun obtenerPorId(id: Int): SolicitudEntity?
+    @Query(
+        "SELECT * FROM solicitudes WHERE id = :id AND " +
+                "(:rol = 'administrador' " +
+                "OR (:rol = 'cliente' AND creadoPorUsuarioId = :usuarioId) " +
+                "OR (:rol = 'tecnico' AND asignadoAUsuarioId = :usuarioId)) LIMIT 1"
+    )
+    suspend fun obtenerPorId(id: Int, usuarioId: Int, rol: String): SolicitudEntity?
 
-    // Busca UNA solicitud por su código visible (por ejemplo "SOL-1A2B3C4D").
-    // Es lo que usa el escáner QR: el QR contiene ese código y con él se encuentra
-    // la solicitud guardada. Devuelve null si ninguna solicitud tiene ese código.
-    // No agrega columnas ni cambia la tabla, así que la versión de la base de datos sigue en 2.
-    @Query("SELECT * FROM solicitudes WHERE codigo = :codigo LIMIT 1")
-    suspend fun obtenerPorCodigo(codigo: String): SolicitudEntity?
+    // El escáner solo habilita abrir el detalle si el usuario tiene acceso a la solicitud.
+    @Query(
+        "SELECT * FROM solicitudes WHERE codigo = :codigo AND " +
+                "(:rol = 'administrador' " +
+                "OR (:rol = 'cliente' AND creadoPorUsuarioId = :usuarioId) " +
+                "OR (:rol = 'tecnico' AND asignadoAUsuarioId = :usuarioId)) LIMIT 1"
+    )
+    suspend fun obtenerPorCodigoVisible(codigo: String, usuarioId: Int, rol: String): SolicitudEntity?
 
     // Guarda los cambios de una solicitud que ya existe.
     // Room busca la fila con el mismo id y reemplaza sus columnas.
     // Devuelve cuántas filas cambió: 1 si salió bien, 0 si el id no existía.
     @Update
     suspend fun actualizar(solicitud: SolicitudEntity): Int
+
+    // Asigna una solicitud al técnico elegido y actualiza su estado.
+    @Query(
+        "UPDATE solicitudes SET asignadoAUsuarioId = :tecnicoId, estado = 'Asignada' " +
+                "WHERE id = :solicitudId AND EXISTS " +
+                "(SELECT 1 FROM usuarios WHERE id = :tecnicoId AND rol = 'tecnico')"
+    )
+    suspend fun asignarTecnico(solicitudId: Int, tecnicoId: Int): Int
 }

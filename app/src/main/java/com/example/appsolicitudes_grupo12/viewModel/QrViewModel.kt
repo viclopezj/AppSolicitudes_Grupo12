@@ -3,6 +3,7 @@ package com.example.appsolicitudes_grupo12.viewModel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.data.repository.SolicitudNoEncontradaException
@@ -18,7 +19,10 @@ import kotlinx.coroutines.launch
 // el QR de una solicitud de esta app y revisa si esa solicitud existe en este teléfono.
 // No conoce nada de Compose: la pantalla solo lo observa y le envía eventos.
 // Funciona igual que los demás ViewModels: UiState + StateFlow.
-class QrViewModel(app: Application) : AndroidViewModel(app) {
+class QrViewModel(app: Application, savedStateHandle: SavedStateHandle) : AndroidViewModel(app) {
+
+    private val usuarioId = savedStateHandle.get<Int>("usuarioId") ?: -1
+    private val rol = savedStateHandle.get<String>("rol").orEmpty()
 
     // Cadena de acceso a datos: Database -> DAO -> Repository
     private val repositorio = SolicitudRepository(
@@ -53,7 +57,7 @@ class QrViewModel(app: Application) : AndroidViewModel(app) {
 
         // launch inicia una corrutina: la consulta ocurre sin congelar la pantalla
         viewModelScope.launch {
-            repositorio.buscarPorCodigo(datos.codigo)
+            repositorio.buscarPorCodigo(datos.codigo, usuarioId, rol)
                 .onSuccess { solicitud ->
                     // Existe en este teléfono: se podrá abrir su detalle con este id
                     _estado.value = QrUiState.Leida(datos = datos, idLocal = solicitud.id)
