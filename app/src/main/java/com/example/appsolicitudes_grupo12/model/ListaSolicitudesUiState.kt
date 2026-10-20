@@ -12,10 +12,16 @@ sealed class ListaSolicitudesUiState {
     // La pantalla muestra un indicador de carga.
     data object Loading : ListaSolicitudesUiState()
 
-    // Hay solicitudes guardadas. Trae la lista para dibujarla.
-    data class Success(val solicitudes: List<SolicitudEntity>) : ListaSolicitudesUiState()
+    // Hay solicitudes guardadas. Trae la lista YA filtrada y ordenada, y el filtro vigente
+    // para que la pantalla muestre qué opciones están elegidas.
+    // La lista puede venir vacía si ninguna solicitud coincide con el filtro:
+    // eso NO es el estado Empty, porque sí hay solicitudes guardadas.
+    data class Success(
+        val solicitudes: List<SolicitudEntity>,
+        val filtro: FiltroSolicitudes = FiltroSolicitudes()
+    ) : ListaSolicitudesUiState()
 
-    // La lectura fue bien, pero todavía no hay ninguna solicitud.
+    // La lectura fue bien, pero todavía no hay ninguna solicitud guardada.
     // La pantalla muestra el mensaje "Aún no hay solicitudes".
     data object Empty : ListaSolicitudesUiState()
 

@@ -1,5 +1,6 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,13 +11,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +33,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -35,11 +43,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
+import com.example.appsolicitudes_grupo12.model.FiltroSolicitudes
 import com.example.appsolicitudes_grupo12.model.ListaSolicitudesUiState
+import com.example.appsolicitudes_grupo12.model.OrdenSolicitudes
 import com.example.appsolicitudes_grupo12.viewModel.ListaSolicitudesViewModel
+import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 
 // Pantalla que muestra las solicitudes guardadas en Room.
-// Solo MUESTRA el estado que le entrega el ViewModel: no lee la base de datos.
+// Solo MUESTRA el estado que le entrega el ViewModel: no lee la base de datos ni filtra por su cuenta.
 // onAgregarClick: lo que pasa al pulsar el botón + (la navegación lo usa para ir al formulario).
 // onSolicitudClick: lo que pasa al tocar una tarjeta. Recibe el id de la solicitud
 // (la navegación lo usa para abrir el detalle).
@@ -90,15 +101,120 @@ fun ListaSolicitudesScreen(
             // Kotlin obliga a cubrir los 4 casos.
             when (val actual = estado) {
                 is ListaSolicitudesUiState.Loading -> ContenidoCargando()
-                is ListaSolicitudesUiState.Success -> ContenidoLista(
-                    solicitudes = actual.solicitudes,
-                    onSolicitudClick = onSolicitudClick
-                )
+
+                is ListaSolicitudesUiState.Success -> {
+                    // Los filtros van arriba y la lista (o el aviso de "sin resultados") debajo
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        FiltrosLista(
+                            filtro = actual.filtro,
+                            onCategoriaChange = viewModel::onCategoriaFiltroChange,
+                            onOrdenChange = viewModel::onOrdenChange
+                        )
+
+                        if (actual.solicitudes.isEmpty()) {
+                            // Hay solicitudes guardadas, pero ninguna coincide con el filtro
+                            ContenidoSinResultados(
+                                onQuitarFiltro = { viewModel.onCategoriaFiltroChange(null) }
+                            )
+                        } else {
+                            ContenidoLista(
+                                solicitudes = actual.solicitudes,
+                                onSolicitudClick = onSolicitudClick
+                            )
+                        }
+                    }
+                }
+
                 is ListaSolicitudesUiState.Empty -> ContenidoVacio()
+
                 is ListaSolicitudesUiState.Error -> ContenidoError(
                     mensaje = actual.mensaje,
                     onReintentar = viewModel::cargarSolicitudes
                 )
+            }
+        }
+    }
+}
+
+// ---------- Filtros: categoría y orden ----------
+// Dos "chips" (botones ovalados) que abren un menú al tocarlos.
+// Solo MUESTRAN lo elegido y avisan qué se eligió: el filtrado lo hace el ViewModel.
+// La fila se puede deslizar hacia los lados, por si los textos no caben en pantallas pequeñas.
+@Composable
+private fun FiltrosLista(
+    filtro: FiltroSolicitudes,
+    onCategoriaChange: (String?) -> Unit,
+    onOrdenChange: (OrdenSolicitudes) -> Unit
+) {
+    // Recuerdan si cada menú está abierto o cerrado
+    var menuCategoriaAbierto by remember { mutableStateOf(false) }
+    var menuOrdenAbierto by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        // ---------- Chip de categoría ----------
+        // El Box agrupa el chip con su menú, para que el menú se abra justo debajo de él
+        Box {
+            FilterChip(
+                selected = filtro.categoria != null,   // se resalta cuando hay un filtro activo
+                onClick = { menuCategoriaAbierto = true },
+                label = { Text("Categoría: ${filtro.categoria ?: "Todas"} ▾") }
+            )
+
+            DropdownMenu(
+                expanded = menuCategoriaAbierto,
+                onDismissRequest = { menuCategoriaAbierto = false }
+            ) {
+                // Primera opción: quitar el filtro
+                DropdownMenuItem(
+                    text = { Text("Todas") },
+                    onClick = {
+                        onCategoriaChange(null)
+                        menuCategoriaAbierto = false
+                    }
+                )
+                // Una opción por cada categoría definida en SolicitudViewModel
+                SolicitudViewModel.CATEGORIAS.forEach { categoria ->
+                    DropdownMenuItem(
+                        text = { Text(categoria) },
+                        onClick = {
+                            onCategoriaChange(categoria)
+                            menuCategoriaAbierto = false
+                        }
+                    )
+                }
+            }
+        }
+
+        // ---------- Chip de orden ----------
+        Box {
+            FilterChip(
+                selected = filtro.orden != OrdenSolicitudes.RECIENTES,   // se resalta si no es el orden normal
+                onClick = { menuOrdenAbierto = true },
+                label = { Text("Orden: ${filtro.orden.etiqueta} ▾") }
+            )
+
+            DropdownMenu(
+                expanded = menuOrdenAbierto,
+                onDismissRequest = { menuOrdenAbierto = false }
+            ) {
+                // entries = las dos opciones del enum: RECIENTES y ANTIGUAS
+                OrdenSolicitudes.entries.forEach { orden ->
+                    DropdownMenuItem(
+                        text = { Text(orden.etiqueta) },
+                        onClick = {
+                            onOrdenChange(orden)
+                            menuOrdenAbierto = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -140,6 +256,30 @@ private fun ContenidoVacio() {
     }
 }
 
+// ---------- Sin resultados: hay solicitudes, pero ninguna coincide con el filtro ----------
+@Composable
+private fun ContenidoSinResultados(onQuitarFiltro: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Ninguna solicitud coincide con el filtro",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center
+        )
+        Button(
+            onClick = onQuitarFiltro,
+            modifier = Modifier.padding(top = 16.dp)
+        ) {
+            Text("Quitar filtro")
+        }
+    }
+}
+
 // ---------- Estado Error: mensaje y botón para reintentar ----------
 @Composable
 private fun ContenidoError(
@@ -178,7 +318,7 @@ private fun ContenidoLista(
     LazyColumn(
         // El espacio inferior evita que el botón + tape la última tarjeta
         contentPadding = PaddingValues(
-            start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp
+            start = 16.dp, top = 8.dp, end = 16.dp, bottom = 88.dp
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
