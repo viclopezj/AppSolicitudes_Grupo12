@@ -48,6 +48,8 @@ androidx-room3-compiler = { group = "androidx.room3", name = "room3-compiler", v
 # Driver SQLite que Room 3 exige. Trae su propio SQLite, así la base de datos
 # se comporta igual en cualquier teléfono (y en otras plataformas a futuro)
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "sqlite" }
+# Trae executeSQL() (androidx.sqlite.async), que usa la migración de AppDatabase
+androidx-sqlite-async = { group = "androidx.sqlite", name = "sqlite-async", version.ref = "sqlite" }
 # Navegar entre pantallas (NavHost y NavController)
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 # Obtener el ViewModel desde las pantallas con viewModel()

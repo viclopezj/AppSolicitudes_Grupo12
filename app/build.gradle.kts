@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.room3.runtime)      // Entity, DAO y Database
     ksp(libs.androidx.room3.compiler)                // Genera el código de Room al compilar
     implementation(libs.androidx.sqlite.bundled)     // Driver SQLite obligatorio en Room 3
+    implementation(libs.androidx.sqlite.async)       // executeSQL() para las migraciones
 
     // --- Navegación y ViewModel ---
     implementation(libs.androidx.navigation.compose)           // Moverse entre pantallas
