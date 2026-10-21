@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -46,6 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.viewModel.AsignarSolicitudesViewModel
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +57,7 @@ import kotlinx.coroutines.delay
 fun AsignarSolicitudesScreen(
     viewModel: AsignarSolicitudesViewModel = viewModel(),
     puedeAdministrar: Boolean,
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onVolver: () -> Unit
 ) {
     val estado by viewModel.estado.collectAsState()
@@ -126,17 +131,37 @@ fun AsignarSolicitudesScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                 }
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(estado.solicitudes, key = { it.id }) { solicitud ->
-                        TarjetaAsignacion(
-                            solicitud = solicitud,
-                            tecnicos = estado.tecnicos,
-                            asignando = estado.solicitudAsignandoId == solicitud.id,
-                            onAsignar = { tecnicoId -> viewModel.asignar(solicitud.id, tecnicoId) }
-                        )
+                val paddingList = PaddingValues(16.dp)
+                if (windowSizeClass == AppWindowSizeClass.Compact) {
+                    LazyColumn(
+                        contentPadding = paddingList,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(estado.solicitudes, key = { it.id }) { solicitud ->
+                            TarjetaAsignacion(
+                                solicitud = solicitud,
+                                tecnicos = estado.tecnicos,
+                                asignando = estado.solicitudAsignandoId == solicitud.id,
+                                onAsignar = { tecnicoId -> viewModel.asignar(solicitud.id, tecnicoId) }
+                            )
+                        }
+                    }
+                } else {
+                    // En ventanas amplias, distribuye las asignaciones en columnas.
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 340.dp),
+                        contentPadding = paddingList,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(estado.solicitudes, key = { it.id }) { solicitud ->
+                            TarjetaAsignacion(
+                                solicitud = solicitud,
+                                tecnicos = estado.tecnicos,
+                                asignando = estado.solicitudAsignandoId == solicitud.id,
+                                onAsignar = { tecnicoId -> viewModel.asignar(solicitud.id, tecnicoId) }
+                            )
+                        }
                     }
                 }
             }

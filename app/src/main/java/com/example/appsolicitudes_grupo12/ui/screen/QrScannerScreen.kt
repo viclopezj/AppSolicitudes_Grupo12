@@ -49,6 +49,8 @@ import com.example.appsolicitudes_grupo12.model.SolicitudQr
 import com.example.appsolicitudes_grupo12.utils.CameraPermissionHelper
 import com.example.appsolicitudes_grupo12.utils.QrScanner
 import com.example.appsolicitudes_grupo12.viewModel.QrViewModel
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -63,6 +65,7 @@ import java.util.Locale
 @Composable
 fun QrScannerScreen(
     viewModel: QrViewModel = viewModel(),
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onVolver: () -> Unit = {},
     onAbrirDetalle: (Int) -> Unit = {}
 ) {
@@ -110,8 +113,15 @@ fun QrScannerScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingInterno)
+                .padding(paddingInterno),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Box(
+                modifier = Modifier
+                    .adaptiveContentWidth(windowSizeClass, 600.dp, 760.dp, 1000.dp)
+                    .fillMaxSize()
+            ) {
+            // Centra y limita el área de cámara en ventanas grandes.
             if (!tienePermiso) {
                 // Sin permiso no se puede abrir la cámara
                 ContenidoSinPermiso(
@@ -135,6 +145,7 @@ fun QrScannerScreen(
                         onEscanearOtro = viewModel::reiniciar
                     )
                 }
+            }
             }
         }
     }

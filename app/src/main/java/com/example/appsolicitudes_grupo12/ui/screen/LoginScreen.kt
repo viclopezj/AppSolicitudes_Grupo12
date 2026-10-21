@@ -46,11 +46,14 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.viewModel.LoginViewModel
 
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = viewModel(),
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onLoginExitoso: (String, Int, String) -> Unit = { _, _, _ -> }
 ) {
     val estado by viewModel.estado.collectAsState()
@@ -78,7 +81,8 @@ fun LoginScreen(
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    // Limita el ancho en ventanas grandes para mantener el formulario legible.
+                    .adaptiveContentWidth(windowSizeClass, 520.dp, 620.dp, 680.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally

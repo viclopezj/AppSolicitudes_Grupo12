@@ -1,12 +1,14 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -24,6 +26,8 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.PermanentDrawerSheet
+import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -33,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
 import kotlinx.coroutines.launch
 
 // Pantalla de menú: es la que aparece justo después del login.
@@ -45,6 +50,7 @@ import kotlinx.coroutines.launch
 fun MenuScreen(
     nombreUsuario: String,
     rolUsuario: String,
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onIrALista: () -> Unit = {},
     onIrAFormulario: () -> Unit = {},
     onIrAAsignaciones: () -> Unit = {},
@@ -55,13 +61,10 @@ fun MenuScreen(
 
     // Abrir y cerrar el menú es una animación; por eso se hace dentro de una corrutina
     val alcance = rememberCoroutineScope()
+    val esCompacto = windowSizeClass == AppWindowSizeClass.Compact
 
-    // ModalNavigationDrawer = el menú lateral que se desliza sobre la pantalla
-    ModalNavigationDrawer(
-        drawerState = estadoMenu,
-        drawerContent = {
-            ModalDrawerSheet {
-
+    val drawerItems: @Composable () -> Unit = {
+                // El contenido del drawer se comparte entre las versiones modal y permanente.
                 // ---------- Encabezado del menú ----------
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -140,9 +143,9 @@ fun MenuScreen(
                         )
                     }
                 )
-            }
-        }
-    ) {
+    }
+
+    val contenidoPrincipal: @Composable () -> Unit = {
         // ---------- Contenido de la pantalla (lo que se ve con el menú cerrado) ----------
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -151,7 +154,7 @@ fun MenuScreen(
                     title = { Text("Inicio") },
                     // Botón de las tres rayas: abre el menú lateral
                     navigationIcon = {
-                        IconButton(onClick = { alcance.launch { estadoMenu.open() } }) {
+                        if (esCompacto) IconButton(onClick = { alcance.launch { estadoMenu.open() } }) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "Abrir menú"   // para lectores de pantalla
@@ -162,14 +165,18 @@ fun MenuScreen(
             }
         ) { paddingInterno ->
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingInterno)
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+            Box(
+                modifier = Modifier.fillMaxSize().padding(paddingInterno).padding(24.dp),
+                contentAlignment = Alignment.Center
             ) {
+                // Centra el panel y limita su ancho en ventanas amplias.
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = if (esCompacto) 520.dp else 680.dp)
+                        .fillMaxWidth(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large
@@ -234,8 +241,28 @@ fun MenuScreen(
                     }
                 }
             }
+            }
         }
     }
+
+    if (esCompacto) {
+        // ModalNavigationDrawer = el menú lateral que se desliza sobre la pantalla
+        // ModalNavigationDrawer conserva el menu deslizable en ventanas compactas.
+        ModalNavigationDrawer(
+            drawerState = estadoMenu,
+            drawerContent = { ModalDrawerSheet { drawerItems() } }
+        ) {
+            contenidoPrincipal()
+        }
+    } else {
+        // PermanentNavigationDrawer mantiene las opciones visibles en ventanas amplias.
+        PermanentNavigationDrawer(
+            drawerContent = { PermanentDrawerSheet { drawerItems() } }
+        ) {
+            contenidoPrincipal()
+        }
+    }
+
 }
 
 private fun etiquetaRol(rol: String): String = when (rol) {

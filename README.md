@@ -41,6 +41,7 @@ Para esta etapa se desarrolló el **módulo de Solicitudes** con **tres perfiles
 | `sqlite-bundled` / `sqlite-async` | Driver de SQLite obligatorio en Room 3 y `executeSQL()` para la migración. |
 | Navigation Compose | Navegación entre pantallas. |
 | `lifecycle-viewmodel-compose` | Obtener el ViewModel con `viewModel()` en Compose. |
+| `androidx.compose.material3.adaptive:adaptive` | Obtiene la clase de ancho para adaptar navegación y pantallas al espacio disponible. |
 | `material-icons-core` | Íconos básicos (Add, ArrowBack, Menu, Person, Lock, Edit, Warning...). |
 | CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`) | Abre la cámara y muestra su vista previa en el escáner QR. |
 | ML Kit `barcode-scanning` | **Lee** el código QR a partir de las imágenes de la cámara. |
@@ -66,6 +67,11 @@ Las tres cuentas ficticias se crean automáticamente en Room al iniciar sesión 
 - **`animateColorAsState`:** la etiqueta de estado cambia de color con una transición de 400 ms (por ejemplo, al pasar de "Recibida" a "Asignada").
 - **`AnimatedVisibility`:** aparecen y se esconden con animación el aviso de éxito de la asignación (que se cierra solo a los 3 segundos), la vista previa de la foto de evidencia, el botón "Quitar foto" y el mensaje de error del login.
 - **Íconos en formularios:** ícono inicial en cada campo, ícono de advertencia cuando el campo tiene error y botón para mostrar u ocultar la clave en el login.
+
+### Adaptabilidad por tamaño de ventana
+- La aplicación clasifica el ancho disponible con Window Size Classes y actualiza la interfaz si cambia la orientación o el tamaño de la ventana.
+- En ventanas compactas conserva el menú desplegable y las listas de una columna; en ventanas medianas y expandidas usa navegación permanente y cuadrículas adaptativas para solicitudes y asignaciones.
+- Login, formulario, detalle y escáner limitan su ancho en pantallas grandes para mantener una lectura cómoda.
 
 ### Autenticación, perfiles y menú
 - Inicio de sesión con cuentas ficticias guardadas en Room.

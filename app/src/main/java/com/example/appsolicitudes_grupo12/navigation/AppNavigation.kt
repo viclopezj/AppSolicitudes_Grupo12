@@ -14,6 +14,7 @@ import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
 import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
 import com.example.appsolicitudes_grupo12.ui.screen.QrScannerScreen
 import com.example.appsolicitudes_grupo12.ui.screen.SolicitudFormScreen
+import com.example.appsolicitudes_grupo12.ui.utils.rememberAppWindowSizeClass
 
 object Rutas {
     const val LOGIN = "login"
@@ -40,10 +41,13 @@ object Rutas {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    // Detecta el ancho disponible y se actualiza al cambiar el tamaño de ventana.
+    val windowSizeClass = rememberAppWindowSizeClass()
 
     NavHost(navController = navController, startDestination = Rutas.LOGIN) {
         composable(Rutas.LOGIN) {
             LoginScreen(
+                windowSizeClass = windowSizeClass,
                 onLoginExitoso = { nombre, usuarioId, rol ->
                     navController.navigate(Rutas.menu(nombre, usuarioId, rol)) {
                         popUpTo(Rutas.LOGIN) { inclusive = true }
@@ -67,6 +71,7 @@ fun AppNavigation() {
             MenuScreen(
                 nombreUsuario = nombre,
                 rolUsuario = rol,
+                windowSizeClass = windowSizeClass,
                 onIrALista = { navController.navigate(Rutas.lista(usuarioId, rol)) },
                 onIrAFormulario = {
                     if (rol == "cliente") {
@@ -97,6 +102,7 @@ fun AppNavigation() {
             val rol = entrada.arguments?.getString("rol").orEmpty()
             ListaSolicitudesScreen(
                 rolUsuario = rol,
+                windowSizeClass = windowSizeClass,
                 onAgregarClick = {
                     if (rol == "cliente") {
                         navController.navigate(Rutas.formulario(usuarioId, rol))
@@ -119,6 +125,7 @@ fun AppNavigation() {
             val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
             val rol = entrada.arguments?.getString("rol").orEmpty()
             SolicitudFormScreen(
+                windowSizeClass = windowSizeClass,
                 onGuardado = {
                     navController.navigate(Rutas.lista(usuarioId, rol)) {
                         popUpTo(Rutas.FORMULARIO) { inclusive = true }
@@ -137,7 +144,10 @@ fun AppNavigation() {
                 navArgument("rol") { type = NavType.StringType }
             )
         ) {
-            DetalleSolicitudScreen(onVolver = { navController.popBackStack() })
+            DetalleSolicitudScreen(
+                windowSizeClass = windowSizeClass,
+                onVolver = { navController.popBackStack() }
+            )
         }
 
         composable(
@@ -150,6 +160,7 @@ fun AppNavigation() {
             val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
             val rol = entrada.arguments?.getString("rol").orEmpty()
             QrScannerScreen(
+                windowSizeClass = windowSizeClass,
                 onVolver = { navController.popBackStack() },
                 onAbrirDetalle = { id ->
                     navController.navigate(Rutas.detalle(id, usuarioId, rol))
@@ -166,6 +177,7 @@ fun AppNavigation() {
         ) { entrada ->
             val rol = entrada.arguments?.getString("rol").orEmpty()
             AsignarSolicitudesScreen(
+                windowSizeClass = windowSizeClass,
                 puedeAdministrar = rol == "administrador",
                 onVolver = { navController.popBackStack() }
             )
