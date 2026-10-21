@@ -1,5 +1,10 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -117,7 +122,22 @@ fun DetalleSolicitudScreen(
         ) {
             // Según el estado del ViewModel, se dibuja una cosa u otra.
             // Kotlin obliga a cubrir los 4 casos.
-            when (val actual = estado) {
+            // AnimatedContent: fundido suave entre Loading, lectura, edición, error, etc.
+            // contentKey distingue lectura de edición para que también esa transición se anime,
+            // pero no repite la animación cuando solo cambian los textos que se escriben.
+            AnimatedContent(
+                targetState = estado,
+                contentKey = { actual ->
+                    if (actual is DetalleSolicitudUiState.Success) {
+                        if (actual.edicion != null) "edicion" else "lectura"
+                    } else {
+                        actual::class
+                    }
+                },
+                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
+                label = "estadoDetalle"
+            ) { actual ->
+            when (actual) {
                 is DetalleSolicitudUiState.Loading -> DetalleCargando()
 
                 is DetalleSolicitudUiState.Success -> {
@@ -145,6 +165,7 @@ fun DetalleSolicitudScreen(
                     mensaje = actual.mensaje,
                     onReintentar = viewModel::cargarSolicitud
                 )
+            }
             }
         }
     }

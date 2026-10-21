@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Modo oscuro: el fondo inicial de la ventana es oscuro, así no hay destello claro al abrir -->
+    <style name="Theme.AppSolicitudes_Grupo12" parent="android:Theme.Material.NoActionBar" />
+</resources>

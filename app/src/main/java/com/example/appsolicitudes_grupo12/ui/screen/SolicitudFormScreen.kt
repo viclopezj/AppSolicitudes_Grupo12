@@ -4,6 +4,11 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +26,10 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -234,6 +243,8 @@ fun SolicitudFormScreen(
                 value = estado.titulo,                       // lee del ViewModel
                 onValueChange = viewModel::onTituloChange,   // escribe en el ViewModel
                 label = { Text("Título *") },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                trailingIcon = { if (estado.errores.titulo != null) IconoError() },
                 singleLine = true,
                 isError = estado.errores.titulo != null,     // borde rojo si hay error
                 supportingText = {
@@ -247,6 +258,8 @@ fun SolicitudFormScreen(
                 value = estado.descripcion,
                 onValueChange = viewModel::onDescripcionChange,
                 label = { Text("Descripción *") },
+                leadingIcon = { Icon(Icons.Default.Create, contentDescription = null) },
+                trailingIcon = { if (estado.errores.descripcion != null) IconoError() },
                 minLines = 3,
                 maxLines = 6,
                 isError = estado.errores.descripcion != null,
@@ -270,6 +283,9 @@ fun SolicitudFormScreen(
                     onValueChange = {},          // no se escribe: solo se elige de la lista
                     readOnly = true,
                     label = { Text("Categoría *") },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                    },
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuCategoriaAbierto)
                     },
@@ -311,6 +327,8 @@ fun SolicitudFormScreen(
                         else "Servicio relacionado (opcional)"
                     )
                 },
+                leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
+                trailingIcon = { if (estado.errores.servicio != null) IconoError() },
                 singleLine = true,
                 isError = estado.errores.servicio != null,
                 supportingText = {
@@ -326,28 +344,35 @@ fun SolicitudFormScreen(
                     style = MaterialTheme.typography.titleSmall
                 )
 
-                // Vista previa: Loading mientras se copia la foto, la foto si ya hay una
-                if (estado.cargandoFoto) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+                // Vista previa: Loading mientras se copia la foto, la foto si ya hay una.
+                // AnimatedVisibility la despliega con fundido al elegir la foto y la pliega al quitarla.
+                AnimatedVisibility(
+                    visible = estado.cargandoFoto || estado.evidenciaUri != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    if (estado.cargandoFoto) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    } else if (estado.evidenciaUri != null) {
+                        // AsyncImage (de Coil) lee el archivo en segundo plano y lo reduce
+                        // al tamaño necesario, para que una foto grande no gaste memoria.
+                        AsyncImage(
+                            model = estado.evidenciaUri,
+                            contentDescription = "Foto de evidencia de la solicitud",
+                            contentScale = ContentScale.Crop,   // llena el recuadro recortando los bordes
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        )
                     }
-                } else if (estado.evidenciaUri != null) {
-                    // AsyncImage (de Coil) lee el archivo en segundo plano y lo reduce
-                    // al tamaño necesario, para que una foto grande no gaste memoria.
-                    AsyncImage(
-                        model = estado.evidenciaUri,
-                        contentDescription = "Foto de evidencia de la solicitud",
-                        contentScale = ContentScale.Crop,   // llena el recuadro recortando los bordes
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                    )
                 }
 
                 // Los dos botones comparten el ancho. Se desactivan mientras se copia o se guarda.
@@ -383,7 +408,7 @@ fun SolicitudFormScreen(
                 }
 
                 // Solo aparece si ya hay una foto elegida
-                if (estado.evidenciaUri != null) {
+                AnimatedVisibility(visible = estado.evidenciaUri != null) {
                     TextButton(
                         onClick = viewModel::quitarFoto,
                         enabled = !estado.cargandoFoto && !estado.guardando

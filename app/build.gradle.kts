@@ -62,17 +62,16 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.core)
 
     // --- Cámara (QR) ---
-    val cameraxVersion = "1.4.2"
-    implementation("androidx.camera:camera-core:$cameraxVersion")       // Base de CameraX
-    implementation("androidx.camera:camera-camera2:$cameraxVersion")    // Conecta CameraX con la cámara del teléfono
-    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")  // Abre/cierra la cámara según el ciclo de vida
-    implementation("androidx.camera:camera-view:$cameraxVersion")       // PreviewView: muestra la imagen de la cámara
+    implementation(libs.androidx.camera.core)         // Base de CameraX
+    implementation(libs.androidx.camera.camera2)      // Conecta CameraX con la cámara del teléfono
+    implementation(libs.androidx.camera.lifecycle)    // Abre/cierra la cámara según el ciclo de vida
+    implementation(libs.androidx.camera.view)         // PreviewView: muestra la imagen de la cámara
 
     // ML Kit: lee el código QR desde la imagen de la cámara
-    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation(libs.mlkit.barcode.scanning)
 
     // ZXing core: GENERA el QR de cada solicitud (para poder probar el escáner)
-    implementation("com.google.zxing:core:3.5.3")
+    implementation(libs.zxing.core)
 
     // --- Imágenes (foto de evidencia) ---
     implementation(libs.coil.compose)   // Coil: AsyncImage muestra la foto guardada
@@ -84,4 +83,4 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-}
+}

@@ -19,15 +19,7 @@ interface UsuarioDao {
     @Query("SELECT * FROM usuarios WHERE nombreUsuario = :nombreUsuario LIMIT 1")
     suspend fun buscarPorNombre(nombreUsuario: String): UsuarioEntity?
 
-    // Cuenta cuántos usuarios hay guardados.
-    // El repositorio la usa para saber si debe crear el usuario demo.
-    @Query("SELECT COUNT(*) FROM usuarios")
-    suspend fun contar(): Int
-
     // Cuentas disponibles para asignar solicitudes.
     @Query("SELECT * FROM usuarios WHERE rol = 'tecnico' ORDER BY nombre")
     suspend fun obtenerTecnicos(): List<UsuarioEntity>
-
-    @Query("SELECT * FROM usuarios WHERE id = :id LIMIT 1")
-    suspend fun buscarPorId(id: Int): UsuarioEntity?
 }

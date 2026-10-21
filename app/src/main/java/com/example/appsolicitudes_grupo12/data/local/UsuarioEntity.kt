@@ -26,7 +26,7 @@ data class UsuarioEntity(
     // Nombre que se muestra en el menú, por ejemplo "Usuario Demo"
     val nombre: String,
 
-    // Perfil del usuario. Hoy todos son "general"; más adelante será
-    // "cliente", "administrador" o "tecnico" para limitar lo que cada uno puede hacer.
+    // Perfil del usuario: "cliente", "administrador" o "tecnico". Define qué solicitudes
+    // ve y qué puede hacer. "general" solo existía antes de la versión 3 de la base de datos.
     val rol: String = "general"
-)
+)

@@ -1,5 +1,11 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -104,7 +110,16 @@ fun ListaSolicitudesScreen(
         ) {
             // Según el estado del ViewModel, se dibuja una cosa u otra.
             // Kotlin obliga a cubrir los 4 casos.
-            when (val actual = estado) {
+            // AnimatedContent hace un fundido suave al pasar de un estado a otro
+            // (Loading -> Success, Success -> Empty, etc.). contentKey usa solo el TIPO de estado:
+            // así cambiar un filtro (que crea otro Success) no repite la animación.
+            AnimatedContent(
+                targetState = estado,
+                contentKey = { it::class },
+                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
+                label = "estadoLista"
+            ) { actual ->
+            when (actual) {
                 is ListaSolicitudesUiState.Loading -> ContenidoCargando()
 
                 is ListaSolicitudesUiState.Success -> {
@@ -136,6 +151,7 @@ fun ListaSolicitudesScreen(
                     mensaje = actual.mensaje,
                     onReintentar = viewModel::cargarSolicitudes
                 )
+            }
             }
         }
     }
@@ -384,7 +400,8 @@ private fun TarjetaSolicitud(
 }
 
 // Etiqueta de color con el nombre del estado.
-// Hoy solo existe "Recibida", pero ya quedan previstos los demás estados del caso.
+// Cada estado tiene su color; cuando el estado cambia (por ejemplo, al asignar un técnico)
+// el color se transforma suavemente gracias a animateColorAsState.
 // Es pública (sin "private") porque DetalleSolicitudScreen y QrScannerScreen también la usan.
 @Composable
 fun EtiquetaEstado(estado: String) {
@@ -401,14 +418,26 @@ fun EtiquetaEstado(estado: String) {
         else -> colores.surfaceVariant to colores.onSurfaceVariant
     }
 
+    // animateColorAsState: en vez de saltar de un color a otro, lo hace en 400 ms
+    val fondoAnimado by animateColorAsState(
+        targetValue = fondo,
+        animationSpec = tween(durationMillis = 400),
+        label = "fondoEtiqueta"
+    )
+    val textoAnimado by animateColorAsState(
+        targetValue = texto,
+        animationSpec = tween(durationMillis = 400),
+        label = "textoEtiqueta"
+    )
+
     Surface(
         shape = RoundedCornerShape(50),   // bordes totalmente redondeados
-        color = fondo
+        color = fondoAnimado
     ) {
         Text(
             text = estado,
             style = MaterialTheme.typography.labelMedium,
-            color = texto,
+            color = textoAnimado,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
         )
     }

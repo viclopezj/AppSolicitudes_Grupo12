@@ -1,5 +1,6 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,23 +16,33 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,6 +54,9 @@ fun LoginScreen(
     onLoginExitoso: (String, Int, String) -> Unit = { _, _, _ -> }
 ) {
     val estado by viewModel.estado.collectAsState()
+
+    // Si la clave se ve o está oculta (sobrevive a giros de pantalla)
+    var claveVisible by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(estado.nombreAutenticado, estado.usuarioIdAutenticado, estado.rolAutenticado) {
         val nombre = estado.nombreAutenticado
@@ -108,6 +122,8 @@ fun LoginScreen(
                             value = estado.nombreUsuario,
                             onValueChange = viewModel::onNombreUsuarioChange,
                             label = { Text("Usuario") },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                            trailingIcon = { if (estado.errorNombreUsuario != null) IconoError() },
                             singleLine = true,
                             isError = estado.errorNombreUsuario != null,
                             supportingText = {
@@ -121,8 +137,20 @@ fun LoginScreen(
                             value = estado.contrasena,
                             onValueChange = viewModel::onContrasenaChange,
                             label = { Text("Clave") },
+                            leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                            // Botón para mostrar u ocultar la clave. Material3 trae pocos íconos
+                            // en el paquete básico, por eso se usa un botón de texto.
+                            trailingIcon = {
+                                TextButton(onClick = { claveVisible = !claveVisible }) {
+                                    Text(if (claveVisible) "Ocultar" else "Mostrar")
+                                }
+                            },
                             singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
+                            visualTransformation = if (claveVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
                             isError = estado.errorContrasena != null,
                             supportingText = {
                                 estado.errorContrasena?.let { Text(it) }
@@ -137,9 +165,10 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        estado.errorLogin?.let { mensaje ->
+                        // El error de credenciales aparece con animación en vez de saltar
+                        AnimatedVisibility(visible = estado.errorLogin != null) {
                             Text(
-                                text = mensaje,
+                                text = estado.errorLogin.orEmpty(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.error,
                                 textAlign = TextAlign.Center

@@ -15,7 +15,7 @@ Caso: *Gestión móvil y seguimiento de solicitudes de clientes* (Caso_DSY1105_0
 
 Una pequeña empresa de servicios informáticos recibe hoy las solicitudes de sus clientes por WhatsApp, lo que dificulta el seguimiento, la trazabilidad y la visibilidad de cada requerimiento. Esta aplicación es un **Producto Mínimo Viable (MVP)** que representa cómo una solicitud puede quedar registrada, identificada con un código único, asignada a un responsable y disponible para consulta según el perfil de cada usuario.
 
-Para esta etapa se desarrolló el **módulo de Solicitudes** con **tres perfiles** (cliente, administrador y técnico), demostrando arquitectura MVVM real, persistencia local con Room, navegación, formularios con validación, gestión de estado, animaciones del sistema de diseño Material 3 y uso de recursos nativos (cámara y galería).
+Para esta etapa se desarrolló el **módulo de Solicitudes** con **tres perfiles** (cliente, administrador y técnico), demostrando arquitectura MVVM real, persistencia local con Room, navegación, formularios con validación, gestión de estado, animaciones con la API de Compose (`AnimatedContent`, `AnimatedVisibility` y `animateColorAsState`) y uso de recursos nativos (cámara y galería).
 
 > Todos los datos utilizados son **ficticios**. La app no lee conversaciones reales ni se integra con WhatsApp.
 
@@ -41,7 +41,7 @@ Para esta etapa se desarrolló el **módulo de Solicitudes** con **tres perfiles
 | `sqlite-bundled` / `sqlite-async` | Driver de SQLite obligatorio en Room 3 y `executeSQL()` para la migración. |
 | Navigation Compose | Navegación entre pantallas. |
 | `lifecycle-viewmodel-compose` | Obtener el ViewModel con `viewModel()` en Compose. |
-| `material-icons-core` | Íconos básicos (Add, ArrowBack, Menu...). |
+| `material-icons-core` | Íconos básicos (Add, ArrowBack, Menu, Person, Lock, Edit, Warning...). |
 | CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`) | Abre la cámara y muestra su vista previa en el escáner QR. |
 | ML Kit `barcode-scanning` | **Lee** el código QR a partir de las imágenes de la cámara. |
 | ZXing `core` | **Genera** la imagen del código QR de cada solicitud. |
@@ -60,6 +60,12 @@ Las tres cuentas ficticias se crean automáticamente en Room al iniciar sesión 
 | Técnico | `tecnico` | `1234` | Ver (solo lectura) las solicitudes que le asignaron. |
 
 ## Funcionalidades implementadas
+
+### Animaciones y retroalimentación visual
+- **`AnimatedContent`:** fundido suave entre los estados Loading, Success, Empty y Error de la lista y del detalle (y entre modo lectura y modo edición del detalle).
+- **`animateColorAsState`:** la etiqueta de estado cambia de color con una transición de 400 ms (por ejemplo, al pasar de "Recibida" a "Asignada").
+- **`AnimatedVisibility`:** aparecen y se esconden con animación el aviso de éxito de la asignación (que se cierra solo a los 3 segundos), la vista previa de la foto de evidencia, el botón "Quitar foto" y el mensaje de error del login.
+- **Íconos en formularios:** ícono inicial en cada campo, ícono de advertencia cuando el campo tiene error y botón para mostrar u ocultar la clave en el login.
 
 ### Autenticación, perfiles y menú
 - Inicio de sesión con cuentas ficticias guardadas en Room.
@@ -176,6 +182,8 @@ app/src/main/res/xml/   file_paths.xml (carpeta que comparte el FileProvider)
 4. Cada teléfono tiene su propia base de datos, por lo que "Abrir detalle" solo aparece donde la solicitud existe y el perfil tiene acceso a ella.
 5. Un teléfono no puede escanear su propia pantalla: se necesita otro dispositivo o una captura abierta en un computador.
 6. El escáner de la app solo reconoce QR generados por la propia aplicación (los que traen la marca `AppSolicitudes_Grupo12`). Un QR de otra fuente muestra el aviso "Este código QR no es de una solicitud", y si el QR de una solicitud se lee con otra app de escaneo, el contenido aparece como texto JSON sin formato.
+7. El QR lleva los datos de la solicitud dentro, por lo que cualquier persona que lo escanee con el escáner de la app ve esa información aunque su perfil no tenga acceso a la solicitud en Room; el botón "Abrir detalle" sí respeta los permisos. Es consecuencia de que el QR no consulta un servidor.
+8. El usuario y el perfil viajan como argumentos de ruta de navegación (no hay una sesión central). Es aceptable en una app local y los DAO repiten la validación de acceso, pero en una app con servidor se reemplazaría por un token de sesión.
 
 ## Fuera del alcance de esta etapa
 

@@ -1,12 +1,19 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -26,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +46,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.viewModel.AsignarSolicitudesViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +56,19 @@ fun AsignarSolicitudesScreen(
     onVolver: () -> Unit
 ) {
     val estado by viewModel.estado.collectAsState()
+
+    // Recuerda el último mensaje de éxito: así, mientras el aviso se esconde con animación,
+    // el texto no desaparece de golpe.
+    var ultimoMensaje by remember { mutableStateOf("") }
+    estado.mensaje?.let { ultimoMensaje = it }
+
+    // El aviso de éxito se cierra solo a los 3 segundos (si llega otro, el contador se reinicia)
+    LaunchedEffect(estado.mensaje) {
+        if (estado.mensaje != null) {
+            delay(3000)
+            viewModel.descartarAvisos()
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -92,9 +114,14 @@ fun AsignarSolicitudesScreen(
             )
 
             else -> Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                estado.mensaje?.let { mensaje ->
+                // AnimatedVisibility: el aviso aparece y se esconde deslizando y con fundido
+                AnimatedVisibility(
+                    visible = estado.mensaje != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
                     Text(
-                        text = mensaje,
+                        text = ultimoMensaje,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
@@ -141,7 +168,14 @@ private fun TarjetaAsignacion(
         ) {
             Text(solicitud.codigo, color = MaterialTheme.colorScheme.primary)
             Text(solicitud.titulo, style = MaterialTheme.typography.titleMedium)
-            Text("Estado: ${solicitud.estado}", style = MaterialTheme.typography.bodyMedium)
+            // La etiqueta cambia de color con animación cuando se asigna el técnico
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Estado:", style = MaterialTheme.typography.bodyMedium)
+                EtiquetaEstado(solicitud.estado)
+            }
 
             Box {
                 TextButton(onClick = { menuAbierto = true }) {
@@ -168,7 +202,10 @@ private fun TarjetaAsignacion(
                 enabled = tecnicoElegido != null && !asignando,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (asignando) CircularProgressIndicator()
+                if (asignando) CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp
+                )
                 else Text(if (solicitud.asignadoAUsuarioId == null) "Asignar" else "Guardar asignación")
             }
         }

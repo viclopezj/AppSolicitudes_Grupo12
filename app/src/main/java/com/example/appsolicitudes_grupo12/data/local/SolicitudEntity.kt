@@ -24,8 +24,8 @@ data class SolicitudEntity(
     val categoria: String,
     val servicio: String,
 
-    // Ruta de la foto de evidencia. Es opcional (null) y se usará cuando
-    // agreguemos la cámara
+    // Ruta de la foto de evidencia (tomada con la cámara o elegida de la galería).
+    // Es opcional: null significa que la solicitud no tiene foto.
     val evidenciaUri: String? = null,
 
     // Toda solicitud nueva comienza como "Recibida"
