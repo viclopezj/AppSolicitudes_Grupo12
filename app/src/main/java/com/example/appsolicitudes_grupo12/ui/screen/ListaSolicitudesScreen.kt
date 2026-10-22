@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -55,6 +58,7 @@ import com.example.appsolicitudes_grupo12.model.ListaSolicitudesUiState
 import com.example.appsolicitudes_grupo12.model.OrdenSolicitudes
 import com.example.appsolicitudes_grupo12.viewModel.ListaSolicitudesViewModel
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
 
 // Pantalla que muestra las solicitudes guardadas en Room.
 // Solo MUESTRA el estado que le entrega el ViewModel: no lee la base de datos ni filtra por su cuenta.
@@ -68,6 +72,7 @@ import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 fun ListaSolicitudesScreen(
     viewModel: ListaSolicitudesViewModel = viewModel(),
     rolUsuario: String,
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onAgregarClick: () -> Unit = {},
     onSolicitudClick: (Int) -> Unit = {},
     onEscanearClick: () -> Unit = {}
@@ -139,7 +144,8 @@ fun ListaSolicitudesScreen(
                         } else {
                             ContenidoLista(
                                 solicitudes = actual.solicitudes,
-                                onSolicitudClick = onSolicitudClick
+                                onSolicitudClick = onSolicitudClick,
+                                windowSizeClass = windowSizeClass
                             )
                         }
                     }
@@ -333,23 +339,38 @@ private fun ContenidoError(
 @Composable
 private fun ContenidoLista(
     solicitudes: List<SolicitudEntity>,
-    onSolicitudClick: (Int) -> Unit
+    onSolicitudClick: (Int) -> Unit,
+    windowSizeClass: AppWindowSizeClass
 ) {
-    // LazyColumn solo dibuja los elementos visibles: es la forma correcta de hacer listas
-    LazyColumn(
-        // El espacio inferior evita que el botón + tape la última tarjeta
-        contentPadding = PaddingValues(
-            start = 16.dp, top = 8.dp, end = 16.dp, bottom = 88.dp
-        ),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // key = id ayuda a Compose a identificar cada tarjeta cuando la lista cambia
-        items(items = solicitudes, key = { it.id }) { solicitud ->
-            TarjetaSolicitud(
-                solicitud = solicitud,
-                onClick = { onSolicitudClick(solicitud.id) }   // avisa qué solicitud se tocó
-            )
+    val padding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 88.dp)
+    if (windowSizeClass == AppWindowSizeClass.Compact) {
+        // LazyColumn solo dibuja los elementos visibles: es la forma correcta de hacer listas
+        LazyColumn(
+            // El espacio inferior evita que el botón + tape la última tarjeta
+            contentPadding = padding,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // key = id ayuda a Compose a identificar cada tarjeta cuando la lista cambia
+            items(items = solicitudes, key = { it.id }) { solicitud ->
+                TarjetaSolicitud(
+                    solicitud = solicitud,
+                    onClick = { onSolicitudClick(solicitud.id) }   // avisa qué solicitud se tocó
+                )
+            }
+        }
+    } else {
+        // En ventanas amplias se muestran varias columnas cuando caben las tarjetas.
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 320.dp),
+            contentPadding = padding,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(items = solicitudes, key = { it.id }) { solicitud ->
+                TarjetaSolicitud(solicitud) { onSolicitudClick(solicitud.id) }
+            }
         }
     }
 }

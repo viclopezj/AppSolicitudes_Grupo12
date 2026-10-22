@@ -57,6 +57,8 @@ import coil3.compose.SubcomposeAsyncImage
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.DetalleSolicitudUiState
 import com.example.appsolicitudes_grupo12.model.EdicionSolicitud
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.viewModel.DetalleSolicitudViewModel
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 import java.text.SimpleDateFormat
@@ -73,6 +75,7 @@ import java.util.Locale
 @Composable
 fun DetalleSolicitudScreen(
     viewModel: DetalleSolicitudViewModel = viewModel(),
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onVolver: () -> Unit = {}
 ) {
     // La pantalla observa el estado: cada cambio redibuja lo necesario
@@ -126,6 +129,10 @@ fun DetalleSolicitudScreen(
             // contentKey distingue lectura de edición para que también esa transición se anime,
             // pero no repite la animación cuando solo cambian los textos que se escriben.
             AnimatedContent(
+                modifier = Modifier
+                    // Centra el detalle y limita su ancho en ventanas amplias.
+                    .align(Alignment.TopCenter)
+                    .adaptiveContentWidth(windowSizeClass, 640.dp, 760.dp, 1000.dp),
                 targetState = estado,
                 contentKey = { actual ->
                     if (actual is DetalleSolicitudUiState.Success) {

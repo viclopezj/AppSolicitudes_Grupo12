@@ -69,6 +69,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.example.appsolicitudes_grupo12.utils.CameraPermissionHelper
 import com.example.appsolicitudes_grupo12.utils.EvidenciaUtils
+import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 import java.io.File
 
@@ -82,6 +84,7 @@ import java.io.File
 @Composable
 fun SolicitudFormScreen(
     viewModel: SolicitudViewModel = viewModel(),
+    windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onGuardado: () -> Unit = {},
     onVolver: () -> Unit = {}
 ) {
@@ -228,15 +231,19 @@ fun SolicitudFormScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingInterno ->
 
-        // Column con scroll: si el teclado ocupa espacio, se puede deslizar
-        Column(
-            modifier = Modifier
-                .padding(paddingInterno)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState())
-                .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Box(
+            modifier = Modifier.fillMaxSize().padding(paddingInterno).imePadding(),
+            contentAlignment = Alignment.TopCenter
         ) {
+            // El ancho se limita en ventanas amplias para mantener legible el formulario.
+            // Column con scroll: si el teclado ocupa espacio, se puede deslizar
+            Column(
+                modifier = Modifier
+                    .adaptiveContentWidth(windowSizeClass, 600.dp, 680.dp, 720.dp)
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
 
             // ---------- Título ----------
             OutlinedTextField(
@@ -449,6 +456,7 @@ fun SolicitudFormScreen(
                 text = "* Campo obligatorio",
                 style = MaterialTheme.typography.bodySmall
             )
+            }
         }
     }
 }
