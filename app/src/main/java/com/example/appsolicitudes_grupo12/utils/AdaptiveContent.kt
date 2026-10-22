@@ -1,4 +1,4 @@
-package com.example.appsolicitudes_grupo12.ui.utils
+package com.example.appsolicitudes_grupo12.utils
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn

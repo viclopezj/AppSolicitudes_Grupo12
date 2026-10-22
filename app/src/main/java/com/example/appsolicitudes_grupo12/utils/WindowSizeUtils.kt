@@ -1,4 +1,4 @@
-package com.example.appsolicitudes_grupo12.ui.utils
+package com.example.appsolicitudes_grupo12.utils
 
 import androidx.compose.runtime.Composable
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -16,7 +16,7 @@ enum class AppWindowSizeClass {
 fun rememberAppWindowSizeClass(): AppWindowSizeClass {
     val widthClass = currentWindowAdaptiveInfoV2()
         .windowSizeClass
-        .windowWidthSizeClass
+        .windowSizeClass
 
     return when (widthClass) {
         WindowWidthSizeClass.COMPACT -> AppWindowSizeClass.Compact

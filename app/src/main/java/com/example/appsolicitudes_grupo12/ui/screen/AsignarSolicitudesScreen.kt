@@ -49,7 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.viewModel.AsignarSolicitudesViewModel
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)

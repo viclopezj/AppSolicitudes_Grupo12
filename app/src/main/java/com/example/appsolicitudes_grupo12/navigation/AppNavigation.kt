@@ -14,7 +14,7 @@ import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
 import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
 import com.example.appsolicitudes_grupo12.ui.screen.QrScannerScreen
 import com.example.appsolicitudes_grupo12.ui.screen.SolicitudFormScreen
-import com.example.appsolicitudes_grupo12.ui.utils.rememberAppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.rememberAppWindowSizeClass
 
 object Rutas {
     const val LOGIN = "login"

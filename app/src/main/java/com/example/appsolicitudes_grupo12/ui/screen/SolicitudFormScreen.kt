@@ -69,8 +69,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.example.appsolicitudes_grupo12.utils.CameraPermissionHelper
 import com.example.appsolicitudes_grupo12.utils.EvidenciaUtils
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
-import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 import java.io.File
 

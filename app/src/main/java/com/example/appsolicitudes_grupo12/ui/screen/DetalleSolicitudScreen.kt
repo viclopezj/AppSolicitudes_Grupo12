@@ -57,8 +57,8 @@ import coil3.compose.SubcomposeAsyncImage
 import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.DetalleSolicitudUiState
 import com.example.appsolicitudes_grupo12.model.EdicionSolicitud
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
-import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.viewModel.DetalleSolicitudViewModel
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
 import java.text.SimpleDateFormat

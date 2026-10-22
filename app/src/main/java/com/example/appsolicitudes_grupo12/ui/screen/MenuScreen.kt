@@ -37,7 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
 import kotlinx.coroutines.launch
 
 // Pantalla de menú: es la que aparece justo después del login.

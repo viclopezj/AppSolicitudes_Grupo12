@@ -58,7 +58,7 @@ import com.example.appsolicitudes_grupo12.model.ListaSolicitudesUiState
 import com.example.appsolicitudes_grupo12.model.OrdenSolicitudes
 import com.example.appsolicitudes_grupo12.viewModel.ListaSolicitudesViewModel
 import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
 
 // Pantalla que muestra las solicitudes guardadas en Room.
 // Solo MUESTRA el estado que le entrega el ViewModel: no lee la base de datos ni filtra por su cuenta.

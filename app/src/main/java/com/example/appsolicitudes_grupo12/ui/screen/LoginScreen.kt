@@ -34,7 +34,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,8 +45,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
-import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.viewModel.LoginViewModel
 
 @Composable

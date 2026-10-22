@@ -49,8 +49,8 @@ import com.example.appsolicitudes_grupo12.model.SolicitudQr
 import com.example.appsolicitudes_grupo12.utils.CameraPermissionHelper
 import com.example.appsolicitudes_grupo12.utils.QrScanner
 import com.example.appsolicitudes_grupo12.viewModel.QrViewModel
-import com.example.appsolicitudes_grupo12.ui.utils.AppWindowSizeClass
-import com.example.appsolicitudes_grupo12.ui.utils.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.utils.adaptiveContentWidth
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
