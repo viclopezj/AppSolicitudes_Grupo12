@@ -22,7 +22,7 @@ Para esta etapa se desarrolló el **módulo de Solicitudes** con **tres perfiles
 ## Tecnologías
 
 - Kotlin 2.2.10
-- Jetpack Compose + Material Design 3 (tema propio: paleta verde azulada, tipografía y formas personalizadas, modo claro y oscuro)
+- Jetpack Compose + Material Design 3 (tema propio: paleta verde azulada, tipografía y formas personalizadas, modo claro y oscuro que se adapta automáticamente a la configuración del sistema)- 
 - Arquitectura MVVM (View, ViewModel, Repository, DAO, Room)
 - Room 3.0.3 con `sqlite-bundled` 2.7.0 (generación de código con KSP 2.3.6)
 - Navigation Compose 2.9.8
