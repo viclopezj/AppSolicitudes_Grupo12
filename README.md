@@ -157,10 +157,11 @@ El recorrido principal es **Login → Menú → Lista → Formulario**, y desde 
 Pantalla (View) → ViewModel (valida, UiState + StateFlow) → Repository (código, fecha, estado, Result) → DAO → Room
 ```
 
-- **View (Compose):** dibuja el estado y envía eventos. No valida ni accede a la base de datos.
-- **ViewModel:** guarda el estado en un `MutableStateFlow` privado (expuesto como `StateFlow`), valida y llama al repositorio dentro de `viewModelScope`.
-- **Repository:** aplica las reglas del negocio y devuelve `Result`, de modo que los errores se manejan sin cerrar la app.
-- **DAO y Room:** ejecutan las operaciones sobre la base local.
+- **View (Compose):** Dibuja el estado y envía eventos. No valida ni accede a la base de datos.
+- **ViewModel:** Mantiene el estado (StateFlow), valida los campos y pide al Repository guardar o consultar con corrutinas.
+- **Model: datos:** Datos persistentes y su acceso: Entity, DAO, AppDatabase y Repository.
+- **Model: estado:** Estados de interfaz (UiState): lo que la pantalla muestra en tiempo real (campos escritos, errores, cargando/guardando, filtros).
+- **DAO y Room:** Ejecutan las operaciones sobre la base local.
 
 Hay un ViewModel por flujo: login, formulario, lista, detalle, asignación y escáner QR.
 
