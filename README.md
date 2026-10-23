@@ -159,8 +159,8 @@ Pantalla (View) → ViewModel (valida, UiState + StateFlow) → Repository (cód
 
 - **View (Compose):** Dibuja el estado y envía eventos. No valida ni accede a la base de datos.
 - **ViewModel:** Mantiene el estado (StateFlow), valida los campos y pide al Repository guardar o consultar con corrutinas.
-- **Model: datos:** Datos persistentes y su acceso: Entity, DAO, AppDatabase y Repository.
-- **Model: estado:** Estados de interfaz (UiState): lo que la pantalla muestra en tiempo real (campos escritos, errores, cargando/guardando, filtros).
+- **Estado de UI (UiState):** Clases de la carpeta `model/` que describen lo que la pantalla debe mostrar en cada momento (campos escritos, errores, cargando/guardando, filtros). Pertenecen a la capa de presentación: las crea y modifica el ViewModel y la View solo las observa. No son parte del Model de datos.
+- **Model (datos):** Datos persistentes y su acceso, en la carpeta `data/`: Entity, DAO, AppDatabase y Repository.
 - **DAO y Room:** Ejecutan las operaciones sobre la base local.
 
 Hay un ViewModel por flujo: login, formulario, lista, detalle, asignación y escáner QR.
@@ -229,6 +229,7 @@ app/src/main/java/com/example/appsolicitudes_grupo12/
 └── MainActivity.kt
 app/src/main/res/xml/   file_paths.xml (carpeta que comparte el FileProvider)
 ```
+> **Nota sobre `model/`:** por la estructura base aprobada por el docente, esta carpeta se mantiene con ese nombre, pero contiene los **estados de interfaz (UiState)** y no el Model de datos. Estas clases pertenecen a la capa de presentación, junto al ViewModel que las produce. El Model de datos de la arquitectura MVVM corresponde a la carpeta `data/`.
 
 > **Nota sobre `utils/`:** esta carpeta se agregó **fuera de la estructura base aprobada por el docente** (`data`, `model`, `navigation`, `ui`, `viewModel`) para agrupar funciones de apoyo que no son pantallas ni ViewModels:
 > - `QrScanner.kt`: abre la cámara con CameraX y lee el QR con ML Kit.
