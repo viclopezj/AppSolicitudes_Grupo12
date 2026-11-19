@@ -65,9 +65,16 @@ import com.example.appsolicitudes_grupo12.ui.adaptive.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.ui.components.EtiquetaEstado
 import com.example.appsolicitudes_grupo12.ui.components.ImagenQrSolicitud
 import com.example.appsolicitudes_grupo12.viewmodel.DetalleSolicitudViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.appsolicitudes_grupo12.model.data.local.ComentarioSolicitudEntity
+import com.example.appsolicitudes_grupo12.model.data.local.HistorialSolicitudEntity
+import com.example.appsolicitudes_grupo12.ui.components.ComentariosSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.HistorialSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.formatearFecha
+import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.AccionesSolicitud
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
+import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.GestionSolicitud
 
 // Detalle de una solicitud, con dos modos:
 //   - Lectura: datos guardados, foto de evidencia, código QR y botón "Editar solicitud".
@@ -87,9 +94,22 @@ fun DetalleSolicitudScreen(
     onVolver: () -> Unit = {}
 ) {
     val estado by viewModel.estado.collectAsState()
+    val historial by viewModel.historial.collectAsState()
+    val comentarios by viewModel.comentarios.collectAsState()
+    val acciones by viewModel.acciones.collectAsState()
+    val tecnicos by viewModel.tecnicos.collectAsState()
 
     // Mensajes emergentes para errores al guardar los cambios
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Muestra el aviso (éxito o error) de las acciones y luego lo descarta
+    LaunchedEffect(acciones.error, acciones.mensaje) {
+        val texto = acciones.error ?: acciones.mensaje
+        if (texto != null) {
+            snackbarHostState.showSnackbar(texto)
+            viewModel.descartarAvisosAccion()
+        }
+    }
 
     // Error de guardado del modo edición (null si no hay)
     val errorGuardado = (estado as? DetalleSolicitudUiState.Success)?.edicion?.errorGuardado
@@ -154,8 +174,16 @@ fun DetalleSolicitudScreen(
                         if (edicion == null) {
                             DetalleLectura(
                                 solicitud = actual.solicitud,
+                                rol = rol,
                                 puedeEditar = viewModel.puedeEditar,
-                                onEditar = viewModel::iniciarEdicion
+                                historial = historial,
+                                comentarios = comentarios,
+                                tecnicos = tecnicos,
+                                procesando = acciones.procesando,
+                                onEditar = viewModel::iniciarEdicion,
+                                onCambiarEstado = viewModel::cambiarEstado,
+                                onCambiarPrioridad = viewModel::cambiarPrioridad,
+                                onAsignarTecnico = viewModel::asignarTecnico
                             )
                         } else {
                             DetalleEdicion(
@@ -245,8 +273,16 @@ private fun DetalleError(
 @Composable
 private fun DetalleLectura(
     solicitud: SolicitudEntity,
+    rol: String,
     puedeEditar: Boolean,
-    onEditar: () -> Unit
+    historial: List<HistorialSolicitudEntity>,
+    comentarios: List<ComentarioSolicitudEntity>,
+    tecnicos: List<UsuarioEntity>,
+    procesando: Boolean,
+    onEditar: () -> Unit,
+    onCambiarEstado: (EstadoSolicitud, String?) -> Unit,
+    onCambiarPrioridad: (PrioridadSolicitud) -> Unit,
+    onAsignarTecnico: (Int) -> Unit
 ) {
     // Con scroll por si la descripción es larga
     Column(
@@ -273,6 +309,11 @@ private fun DetalleLectura(
         CampoDeLectura(
             etiqueta = "Fecha de creación",
             valor = formatearFecha(solicitud.fechaCreacion)
+        )
+        CampoDeLectura(etiqueta = "Prioridad", valor = solicitud.prioridad)
+        CampoDeLectura(
+            etiqueta = "Última actualización",
+            valor = formatearFecha(solicitud.ultimaActualizacion)
         )
 
         EvidenciaSolicitud(evidenciaUri = solicitud.evidenciaUri)
@@ -305,6 +346,25 @@ private fun DetalleLectura(
             ) {
                 Text("Editar solicitud")
             }
+            // Por ahora solo el administrador (técnico y cliente llegan después)
+            if (rol == "administrador") {
+                GestionSolicitud(
+                    solicitud = solicitud,
+                    rol = rol,
+                    tecnicos = tecnicos,
+                    procesando = procesando,
+                    onCambiarPrioridad = onCambiarPrioridad,
+                    onAsignarTecnico = onAsignarTecnico
+                )
+                AccionesSolicitud(
+                    rol = rol,
+                    estadoActual = solicitud.estado,
+                    procesando = procesando,
+                    onCambiarEstado = onCambiarEstado
+                )
+            }
+            ComentariosSolicitud(comentarios = comentarios)
+            HistorialSolicitud(historial = historial)
         }
     }
 }
@@ -538,10 +598,4 @@ private fun CampoDeLectura(etiqueta: String, valor: String) {
             style = MaterialTheme.typography.bodyLarge
         )
     }
-}
-
-// Convierte los milisegundos a texto legible, por ejemplo "17/10/2026 14:35".
-private fun formatearFecha(milisegundos: Long): String {
-    val formato = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    return formato.format(Date(milisegundos))
 }

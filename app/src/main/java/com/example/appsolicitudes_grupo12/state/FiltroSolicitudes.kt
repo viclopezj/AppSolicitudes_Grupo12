@@ -6,8 +6,22 @@ enum class OrdenSolicitudes(val etiqueta: String) {
     ANTIGUAS("Más antiguas")
 }
 
-// Filtro y orden elegidos en la lista. categoria = null muestra todas.
+// Filtros y orden elegidos en la lista. null en un filtro = sin filtrar por ese dato.
 data class FiltroSolicitudes(
     val categoria: String? = null,
+    val estado: String? = null,
+    val prioridad: String? = null,
+    val clienteId: Int? = null,
+    // Id del técnico, o SIN_ASIGNAR para las solicitudes sin técnico
+    val responsableId: Int? = null,
     val orden: OrdenSolicitudes = OrdenSolicitudes.RECIENTES
-)
+) {
+    // True si hay algún filtro activo (el orden no cuenta)
+    val hayFiltros: Boolean
+        get() = categoria != null || estado != null || prioridad != null ||
+                clienteId != null || responsableId != null
+
+    companion object {
+        const val SIN_ASIGNAR = -1
+    }
+}

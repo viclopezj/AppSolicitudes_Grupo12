@@ -57,6 +57,10 @@ import com.example.appsolicitudes_grupo12.state.OrdenSolicitudes
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
 import com.example.appsolicitudes_grupo12.ui.components.EtiquetaEstado
 import com.example.appsolicitudes_grupo12.viewmodel.ListaSolicitudesViewModel
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
+import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
+import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.ChipFiltro
 
 // Pantalla con las solicitudes visibles para el usuario. Solo muestra el estado del ViewModel.
 // onAgregarClick: botón + (cliente). onSolicitudClick: recibe el id de la tarjeta tocada.
@@ -75,6 +79,8 @@ fun ListaSolicitudesScreen(
     onEscanearClick: () -> Unit = {}
 ) {
     val estado by viewModel.estado.collectAsState()
+    val clientes by viewModel.clientes.collectAsState()
+    val tecnicos by viewModel.tecnicos.collectAsState()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -122,14 +128,22 @@ fun ListaSolicitudesScreen(
                         Column(modifier = Modifier.fillMaxSize()) {
                             FiltrosLista(
                                 filtro = actual.filtro,
+                                esAdministrador = rolUsuario == "administrador",
+                                clientes = clientes,
+                                tecnicos = tecnicos,
                                 onCategoriaChange = viewModel::onCategoriaFiltroChange,
-                                onOrdenChange = viewModel::onOrdenChange
+                                onEstadoChange = viewModel::onEstadoFiltroChange,
+                                onPrioridadChange = viewModel::onPrioridadFiltroChange,
+                                onClienteChange = viewModel::onClienteFiltroChange,
+                                onResponsableChange = viewModel::onResponsableFiltroChange,
+                                onOrdenChange = viewModel::onOrdenChange,
+                                onLimpiar = viewModel::limpiarFiltros
                             )
 
                             if (actual.solicitudes.isEmpty()) {
                                 // Hay solicitudes guardadas, pero ninguna coincide con el filtro
                                 ContenidoSinResultados(
-                                    onQuitarFiltro = { viewModel.onCategoriaFiltroChange(null) }
+                                    onQuitarFiltro = viewModel::limpiarFiltros
                                 )
                             } else {
                                 ContenidoLista(
@@ -153,17 +167,22 @@ fun ListaSolicitudesScreen(
     }
 }
 
-// Chips de categoría y orden. Solo muestran lo elegido: el filtrado lo hace el ViewModel.
-// La fila se desliza hacia los lados si no caben en pantallas pequeñas.
+// Chips de filtro y orden. Solo muestran lo elegido: el filtrado lo hace el ViewModel.
+// Cliente y responsable son solo del administrador. La fila se desliza si no caben.
 @Composable
 private fun FiltrosLista(
     filtro: FiltroSolicitudes,
+    esAdministrador: Boolean,
+    clientes: List<UsuarioEntity>,
+    tecnicos: List<UsuarioEntity>,
     onCategoriaChange: (String?) -> Unit,
-    onOrdenChange: (OrdenSolicitudes) -> Unit
+    onEstadoChange: (String?) -> Unit,
+    onPrioridadChange: (String?) -> Unit,
+    onClienteChange: (Int?) -> Unit,
+    onResponsableChange: (Int?) -> Unit,
+    onOrdenChange: (OrdenSolicitudes) -> Unit,
+    onLimpiar: () -> Unit
 ) {
-    var menuCategoriaAbierto by remember { mutableStateOf(false) }
-    var menuOrdenAbierto by remember { mutableStateOf(false) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -172,61 +191,58 @@ private fun FiltrosLista(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        ChipFiltro(
+            titulo = "Estado",
+            seleccion = filtro.estado,
+            opciones = EstadoSolicitud.entries.map { it.texto to it.texto },
+            onElegir = onEstadoChange
+        )
 
-        // Chip de categoría (el Box agrupa el chip con su menú)
-        Box {
-            FilterChip(
-                selected = filtro.categoria != null,
-                onClick = { menuCategoriaAbierto = true },
-                label = { Text("Categoría: ${filtro.categoria ?: "Todas"} ▾") }
+        ChipFiltro(
+            titulo = "Prioridad",
+            seleccion = filtro.prioridad,
+            opciones = PrioridadSolicitud.entries.map { it.texto to it.texto },
+            onElegir = onPrioridadChange,
+            textoSinFiltro = "Todas"
+        )
+
+        ChipFiltro(
+            titulo = "Categoría",
+            seleccion = filtro.categoria,
+            opciones = CategoriasSolicitud.LISTA.map { it to it },
+            onElegir = onCategoriaChange,
+            textoSinFiltro = "Todas"
+        )
+
+        if (esAdministrador) {
+            ChipFiltro(
+                titulo = "Cliente",
+                seleccion = filtro.clienteId,
+                opciones = clientes.map { it.id to it.nombre },
+                onElegir = onClienteChange
             )
 
-            DropdownMenu(
-                expanded = menuCategoriaAbierto,
-                onDismissRequest = { menuCategoriaAbierto = false }
-            ) {
-                // Primera opción: quitar el filtro
-                DropdownMenuItem(
-                    text = { Text("Todas") },
-                    onClick = {
-                        onCategoriaChange(null)
-                        menuCategoriaAbierto = false
-                    }
-                )
-                CategoriasSolicitud.LISTA.forEach { categoria ->
-                    DropdownMenuItem(
-                        text = { Text(categoria) },
-                        onClick = {
-                            onCategoriaChange(categoria)
-                            menuCategoriaAbierto = false
-                        }
-                    )
-                }
-            }
+            ChipFiltro(
+                titulo = "Responsable",
+                seleccion = filtro.responsableId,
+                opciones = listOf(FiltroSolicitudes.SIN_ASIGNAR to "Sin asignar") +
+                        tecnicos.map { it.id to it.nombre },
+                onElegir = onResponsableChange
+            )
         }
 
-        // Chip de orden (se resalta si no es el orden normal)
-        Box {
-            FilterChip(
-                selected = filtro.orden != OrdenSolicitudes.RECIENTES,
-                onClick = { menuOrdenAbierto = true },
-                label = { Text("Orden: ${filtro.orden.etiqueta} ▾") }
-            )
+        // El orden siempre tiene un valor: no hay opción "quitar"
+        ChipFiltro(
+            titulo = "Orden",
+            seleccion = filtro.orden,
+            opciones = OrdenSolicitudes.entries.map { it to it.etiqueta },
+            onElegir = { orden -> orden?.let(onOrdenChange) },
+            textoSinFiltro = null,
+            resaltado = filtro.orden != OrdenSolicitudes.RECIENTES
+        )
 
-            DropdownMenu(
-                expanded = menuOrdenAbierto,
-                onDismissRequest = { menuOrdenAbierto = false }
-            ) {
-                OrdenSolicitudes.entries.forEach { orden ->
-                    DropdownMenuItem(
-                        text = { Text(orden.etiqueta) },
-                        onClick = {
-                            onOrdenChange(orden)
-                            menuOrdenAbierto = false
-                        }
-                    )
-                }
-            }
+        if (filtro.hayFiltros) {
+            TextButton(onClick = onLimpiar) { Text("Quitar filtros") }
         }
     }
 }
@@ -286,7 +302,7 @@ private fun ContenidoSinResultados(onQuitarFiltro: () -> Unit) {
             onClick = onQuitarFiltro,
             modifier = Modifier.padding(top = 16.dp)
         ) {
-            Text("Quitar filtro")
+            Text("Quitar filtros")
         }
     }
 }

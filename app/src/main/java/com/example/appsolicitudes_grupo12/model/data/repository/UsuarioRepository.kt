@@ -17,4 +17,15 @@ class UsuarioRepository(private val dao: UsuarioDao) {
             Result.failure(e)
         }
     }
+
+    // Cuentas de clientes disponibles para filtrar.
+    suspend fun obtenerClientes(): Result<List<UsuarioEntity>> {
+        return try {
+            Result.success(dao.obtenerClientes())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

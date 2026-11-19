@@ -15,6 +15,7 @@ import com.example.appsolicitudes_grupo12.ui.screen.ListaSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
 import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
 import com.example.appsolicitudes_grupo12.ui.screen.QrScannerScreen
+import com.example.appsolicitudes_grupo12.ui.screen.ResumenScreen
 
 // Rutas de la app y funciones para armarlas con sus argumentos.
 object Rutas {
@@ -25,6 +26,7 @@ object Rutas {
     const val QR = "qr/{usuarioId}/{rol}"
     const val ASIGNACIONES = "asignaciones/{usuarioId}/{rol}"
     const val DETALLE = "detalle/{id}/{usuarioId}/{rol}"
+    const val RESUMEN = "resumen/{usuarioId}/{rol}"
 
     fun menu(nombre: String, usuarioId: Int, rol: String) =
         "menu/${Uri.encode(nombre)}/$usuarioId/${Uri.encode(rol)}"
@@ -34,6 +36,8 @@ object Rutas {
     fun qr(usuarioId: Int, rol: String) = "qr/$usuarioId/${Uri.encode(rol)}"
     fun asignaciones(usuarioId: Int, rol: String) =
         "asignaciones/$usuarioId/${Uri.encode(rol)}"
+
+    fun resumen(usuarioId: Int, rol: String) = "resumen/$usuarioId/${Uri.encode(rol)}"
 
     fun detalle(id: Int, usuarioId: Int, rol: String) =
         "detalle/$id/$usuarioId/${Uri.encode(rol)}"
@@ -83,6 +87,11 @@ fun AppNavigation() {
                 onIrAAsignaciones = {
                     if (rol == "administrador") {
                         navController.navigate(Rutas.asignaciones(usuarioId, rol))
+                    }
+                },
+                onIrAResumen = {
+                    if (rol == "administrador") {
+                        navController.navigate(Rutas.resumen(usuarioId, rol))
                     }
                 },
                 onCerrarSesion = {
@@ -199,6 +208,22 @@ fun AppNavigation() {
                 usuarioId = usuarioId,
                 rol = rol,
                 puedeAdministrar = rol == "administrador",
+                windowSizeClass = windowSizeClass,
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Rutas.RESUMEN,
+            arguments = listOf(
+                navArgument("usuarioId") { type = NavType.IntType },
+                navArgument("rol") { type = NavType.StringType }
+            )
+        ) { entrada ->
+            val rol = entrada.arguments?.getString("rol").orEmpty()
+
+            ResumenScreen(
+                rol = rol,
                 windowSizeClass = windowSizeClass,
                 onVolver = { navController.popBackStack() }
             )

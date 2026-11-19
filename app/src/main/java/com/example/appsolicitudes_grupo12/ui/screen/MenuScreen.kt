@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Info
 
 // Pantalla de inicio tras el login, con menú lateral y accesos rápidos según el perfil.
 // Solo muestra opciones y avisa qué se pulsó: la navegación le entrega las funciones.
@@ -53,6 +54,7 @@ fun MenuScreen(
     onIrALista: () -> Unit = {},
     onIrAFormulario: () -> Unit = {},
     onIrAAsignaciones: () -> Unit = {},
+    onIrAResumen: () -> Unit = {},
     onCerrarSesion: () -> Unit = {}
 ) {
     val estadoMenu = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -122,6 +124,17 @@ fun MenuScreen(
                 },
                 icon = {
                     Icon(imageVector = Icons.AutoMirrored.Filled.List, contentDescription = null)
+                }
+            )
+            NavigationDrawerItem(
+                label = { Text("Panel resumen") },
+                selected = false,
+                onClick = {
+                    alcance.launch { estadoMenu.close() }
+                    onIrAResumen()
+                },
+                icon = {
+                    Icon(imageVector = Icons.Default.Info, contentDescription = null)
                 }
             )
         }
@@ -235,6 +248,13 @@ fun MenuScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Asignar solicitudes a técnicos")
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedButton(
+                            onClick = onIrAResumen,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Ver panel resumen")
                         }
                     }
                 }

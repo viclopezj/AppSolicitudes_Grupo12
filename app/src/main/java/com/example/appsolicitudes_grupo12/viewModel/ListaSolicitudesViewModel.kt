@@ -19,11 +19,14 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
+import com.example.appsolicitudes_grupo12.model.data.repository.UsuarioRepository
 
 // ViewModel de la lista: lee las solicitudes visibles para el usuario, aplica filtro y orden,
 // y las convierte en Loading, Success, Empty o Error.
 class ListaSolicitudesViewModel(
     private val repositorio: SolicitudRepository,
+    private val repositorioUsuarios: UsuarioRepository,
     private val usuarioId: Int,
     private val rol: String
 ) : ViewModel() {
@@ -40,8 +43,16 @@ class ListaSolicitudesViewModel(
     // Lectura en curso, para cancelarla antes de reintentar
     private var trabajoLectura: Job? = null
 
+    // Cuentas para los filtros de cliente y responsable (solo las usa el administrador)
+    private val _clientes = MutableStateFlow<List<UsuarioEntity>>(emptyList())
+    val clientes: StateFlow<List<UsuarioEntity>> = _clientes.asStateFlow()
+
+    private val _tecnicos = MutableStateFlow<List<UsuarioEntity>>(emptyList())
+    val tecnicos: StateFlow<List<UsuarioEntity>> = _tecnicos.asStateFlow()
+
     init {
         cargarSolicitudes()
+        cargarUsuariosParaFiltros()
     }
 
     // ---------- Lectura ----------
@@ -75,11 +86,41 @@ class ListaSolicitudesViewModel(
         }
     }
 
-    // ---------- Eventos de los filtros ----------
+    // Lee clientes y técnicos para los chips de filtro (solo para el administrador).
+    private fun cargarUsuariosParaFiltros() {
+        if (rol != "administrador") return
+        viewModelScope.launch {
+            repositorioUsuarios.obtenerClientes()
+                .onSuccess { _clientes.value = it }
+                .onFailure { Log.e("ListaSolicitudesVM", "Error al leer los clientes", it) }
+            repositorioUsuarios.obtenerTecnicos()
+                .onSuccess { _tecnicos.value = it }
+                .onFailure { Log.e("ListaSolicitudesVM", "Error al leer los técnicos", it) }
+        }
+    }
 
-    // Filtra por categoría. null = todas.
+    // ---------- Eventos de los filtros ----------
+    // En todos, null = sin filtro.
+
     fun onCategoriaFiltroChange(categoria: String?) {
         _filtro.update { it.copy(categoria = categoria) }
+    }
+
+    fun onEstadoFiltroChange(estado: String?) {
+        _filtro.update { it.copy(estado = estado) }
+    }
+
+    fun onPrioridadFiltroChange(prioridad: String?) {
+        _filtro.update { it.copy(prioridad = prioridad) }
+    }
+
+    fun onClienteFiltroChange(clienteId: Int?) {
+        _filtro.update { it.copy(clienteId = clienteId) }
+    }
+
+    // Para "sin técnico" se usa FiltroSolicitudes.SIN_ASIGNAR.
+    fun onResponsableFiltroChange(responsableId: Int?) {
+        _filtro.update { it.copy(responsableId = responsableId) }
     }
 
     // Cambia el orden por fecha.
@@ -87,24 +128,38 @@ class ListaSolicitudesViewModel(
         _filtro.update { it.copy(orden = orden) }
     }
 
+    // Quita todos los filtros y conserva el orden elegido.
+    fun limpiarFiltros() {
+        _filtro.update { FiltroSolicitudes(orden = it.orden) }
+    }
+
     // ---------- Reglas del filtrado ----------
 
-    // Deja solo la categoría elegida (si hay) y ordena por fecha.
+    // Deja solo las solicitudes que cumplen todos los filtros y las ordena por fecha.
     private fun aplicarFiltro(
         lista: List<SolicitudEntity>,
         filtro: FiltroSolicitudes
     ): List<SolicitudEntity> {
-        val categoria = filtro.categoria
-
-        val filtradas = if (categoria == null) {
-            lista
-        } else {
-            lista.filter { it.categoria == categoria }
+        val filtradas = lista.filter { solicitud ->
+            (filtro.categoria == null || solicitud.categoria == filtro.categoria) &&
+                    (filtro.estado == null || solicitud.estado == filtro.estado) &&
+                    (filtro.prioridad == null || solicitud.prioridad == filtro.prioridad) &&
+                    (filtro.clienteId == null || solicitud.creadoPorUsuarioId == filtro.clienteId) &&
+                    coincideResponsable(solicitud, filtro.responsableId)
         }
 
         return when (filtro.orden) {
             OrdenSolicitudes.RECIENTES -> filtradas.sortedByDescending { it.fechaCreacion }
             OrdenSolicitudes.ANTIGUAS -> filtradas.sortedBy { it.fechaCreacion }
+        }
+    }
+
+    // null = sin filtro; SIN_ASIGNAR = sin técnico; otro valor = ese técnico.
+    private fun coincideResponsable(solicitud: SolicitudEntity, responsableId: Int?): Boolean {
+        return when (responsableId) {
+            null -> true
+            FiltroSolicitudes.SIN_ASIGNAR -> solicitud.asignadoAUsuarioId == null
+            else -> solicitud.asignadoAUsuarioId == responsableId
         }
     }
 
@@ -116,8 +171,14 @@ class ListaSolicitudesViewModel(
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     val baseDatos = AppDatabase.getDatabase(context)
-                    return ListaSolicitudesViewModel(SolicitudRepository(baseDatos), usuarioId, rol) as T
-                }
+                    return ListaSolicitudesViewModel(
+                        SolicitudRepository(baseDatos),
+                        UsuarioRepository(baseDatos.usuarioDao()),
+                        usuarioId,
+                        rol
+                    ) as T
             }
     }
+}
+
 }

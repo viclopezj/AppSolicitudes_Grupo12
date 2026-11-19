@@ -23,4 +23,8 @@ interface UsuarioDao {
     // Técnicos disponibles para asignar solicitudes.
     @Query("SELECT * FROM usuarios WHERE rol = 'tecnico' ORDER BY nombre")
     suspend fun obtenerTecnicos(): List<UsuarioEntity>
+    
+    // Cuentas de clientes, para el filtro del administrador.
+    @Query("SELECT * FROM usuarios WHERE rol = 'cliente' ORDER BY nombre")
+    suspend fun obtenerClientes(): List<UsuarioEntity>
 }

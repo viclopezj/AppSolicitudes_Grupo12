@@ -24,8 +24,8 @@ class SolicitudNoEncontradaException : Exception("La solicitud no existe")
 // El perfil no puede hacer ese cambio en el estado actual.
 class TransicionNoPermitidaException : Exception("Ese cambio no está permitido")
 
-// Cancelar exige escribir un motivo.
-class MotivoObligatorioException : Exception("Debes indicar el motivo de la cancelación")
+// Cancelar, pedir información y resolver exigen escribir un mensaje.
+class MotivoObligatorioException : Exception("Debes escribir un mensaje")
 
 // Intermediario entre los ViewModels y la base de datos de solicitudes.
 // Los cambios y su fila de historial se guardan juntos en una transacción.
@@ -243,14 +243,16 @@ class SolicitudRepository(
         }
     }
 
-    // Cambia el estado si el perfil puede hacerlo (ReglasTransicion). Cancelar exige motivo.
+    // Cambia el estado si el perfil puede hacerlo (ReglasTransicion).
+    // El mensaje queda en el historial y, salvo al cancelar, también como comentario visible.
     // Asignar un técnico se hace con asignarTecnico, no con esta función.
     suspend fun cambiarEstado(
         id: Int,
         usuarioId: Int,
         rol: String,
         nuevoEstado: EstadoSolicitud,
-        comentario: String? = null
+        comentario: String? = null,
+        evidenciaUri: String? = null
     ): Result<Unit> {
         return enTransaccion<Unit> {
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
@@ -282,6 +284,21 @@ class SolicitudRepository(
                 rol = rol,
                 fecha = ahora
             )
+
+            if (motivo != null && nuevoEstado != EstadoSolicitud.CANCELADA) {
+                comentarioDao.insertar(
+                    ComentarioSolicitudEntity(
+                        solicitudId = id,
+                        usuarioId = usuarioId,
+                        usuarioNombre = nombreDe(usuarioId),
+                        rol = rol,
+                        texto = motivo,
+                        esInterno = false,
+                        evidenciaUri = evidenciaUri,
+                        fecha = ahora
+                    )
+                )
+            }
         }
     }
 
@@ -297,6 +314,12 @@ class SolicitudRepository(
 
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
                 ?: throw SolicitudNoEncontradaException()
+
+            // Cerrada y Cancelada ya no se modifican
+            if (EstadoSolicitud.desdeTexto(solicitud.estado)?.esFinal == true) {
+                throw TransicionNoPermitidaException()
+            }
+
             val anterior = PrioridadSolicitud.desdeTexto(solicitud.prioridad)
 
             if (anterior != nuevaPrioridad) {

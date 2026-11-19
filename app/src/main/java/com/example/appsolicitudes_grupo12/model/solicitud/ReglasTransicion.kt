@@ -57,9 +57,9 @@ object ReglasTransicion {
         return if (tieneTecnico) EN_PROCESO else EN_REVISION
     }
 
-    // Cancelar exige escribir un motivo.
+    // Cancelar, pedir información y resolver exigen escribir un mensaje.
     fun requiereMotivo(hasta: EstadoSolicitud): Boolean {
-        return hasta == CANCELADA
+        return hasta == CANCELADA || hasta == PENDIENTE_INFORMACION || hasta == RESUELTA
     }
 
     // Solo el administrador cambia la prioridad.
