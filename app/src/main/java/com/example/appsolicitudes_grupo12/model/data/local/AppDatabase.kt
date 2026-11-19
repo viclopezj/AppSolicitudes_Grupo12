@@ -10,16 +10,23 @@ import androidx.sqlite.async.executeSQL
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 
 // Base de datos Room: conecta las tablas con sus DAO.
-// Versión 3: agrega quién creó y a quién se asignó cada solicitud.
+// Versión 4: agrega prioridad, última actualización, historial y comentarios.
 @Database(
-    entities = [SolicitudEntity::class, UsuarioEntity::class],
-    version = 3,
+    entities = [
+        SolicitudEntity::class,
+        UsuarioEntity::class,
+        HistorialSolicitudEntity::class,
+        ComentarioSolicitudEntity::class
+    ],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun solicitudDao(): SolicitudDao
     abstract fun usuarioDao(): UsuarioDao
+    abstract fun historialSolicitudDao(): HistorialSolicitudDao
+    abstract fun comentarioSolicitudDao(): ComentarioSolicitudDao
 
     companion object {
 
@@ -33,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     "solicitudes_database"
                 )
-                    .addMigrations(MIGRACION_2_3)
+                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4)
                     // Room 3 exige indicar el driver de SQLite
                     .setDriver(BundledSQLiteDriver())
                     .build()
@@ -62,6 +69,72 @@ abstract class AppDatabase : RoomDatabase() {
                             "(SELECT id FROM usuarios WHERE nombreUsuario = 'demo' LIMIT 1) " +
                             "WHERE creadoPorUsuarioId IS NULL AND EXISTS " +
                             "(SELECT 1 FROM usuarios WHERE nombreUsuario = 'demo')"
+                )
+            }
+        }
+
+        // Migración 3 -> 4: agrega prioridad y última actualización a las solicitudes,
+        // crea las tablas de historial y comentarios, y deja un primer registro de historial
+        // por cada solicitud existente. No se borra ningún dato.
+        private val MIGRACION_3_4 = object : Migration(3, 4) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                // Columnas nuevas de solicitudes (las antiguas quedan con prioridad Media)
+                connection.executeSQL(
+                    "ALTER TABLE solicitudes ADD COLUMN prioridad TEXT NOT NULL DEFAULT 'Media'"
+                )
+                connection.executeSQL(
+                    "ALTER TABLE solicitudes ADD COLUMN ultimaActualizacion INTEGER NOT NULL DEFAULT 0"
+                )
+                connection.executeSQL(
+                    "UPDATE solicitudes SET ultimaActualizacion = fechaCreacion"
+                )
+
+                // Tabla del historial de cambios
+                connection.executeSQL(
+                    "CREATE TABLE IF NOT EXISTS historial_solicitud (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "solicitudId INTEGER NOT NULL, " +
+                            "estadoAnterior TEXT, " +
+                            "estadoNuevo TEXT NOT NULL, " +
+                            "accion TEXT NOT NULL, " +
+                            "comentario TEXT, " +
+                            "rol TEXT NOT NULL, " +
+                            "usuarioId INTEGER NOT NULL, " +
+                            "usuarioNombre TEXT NOT NULL, " +
+                            "fecha INTEGER NOT NULL)"
+                )
+                connection.executeSQL(
+                    "CREATE INDEX IF NOT EXISTS index_historial_solicitud_solicitudId " +
+                            "ON historial_solicitud (solicitudId)"
+                )
+
+                // Tabla de comentarios de seguimiento
+                connection.executeSQL(
+                    "CREATE TABLE IF NOT EXISTS comentarios_solicitud (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "solicitudId INTEGER NOT NULL, " +
+                            "usuarioId INTEGER NOT NULL, " +
+                            "usuarioNombre TEXT NOT NULL, " +
+                            "rol TEXT NOT NULL, " +
+                            "texto TEXT NOT NULL, " +
+                            "esInterno INTEGER NOT NULL, " +
+                            "evidenciaUri TEXT, " +
+                            "fecha INTEGER NOT NULL)"
+                )
+                connection.executeSQL(
+                    "CREATE INDEX IF NOT EXISTS index_comentarios_solicitud_solicitudId " +
+                            "ON comentarios_solicitud (solicitudId)"
+                )
+
+                // Primer registro del historial de las solicitudes que ya existían
+                connection.executeSQL(
+                    "INSERT INTO historial_solicitud " +
+                            "(solicitudId, estadoAnterior, estadoNuevo, accion, comentario, " +
+                            "rol, usuarioId, usuarioNombre, fecha) " +
+                            "SELECT s.id, NULL, 'Recibida', 'Solicitud registrada', NULL, " +
+                            "'cliente', COALESCE(s.creadoPorUsuarioId, 0), " +
+                            "COALESCE(u.nombre, 'Sin registro'), s.fechaCreacion " +
+                            "FROM solicitudes s LEFT JOIN usuarios u ON u.id = s.creadoPorUsuarioId"
                 )
             }
         }

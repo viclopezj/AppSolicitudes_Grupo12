@@ -3,6 +3,7 @@ package com.example.appsolicitudes_grupo12.model.data.local
 import androidx.room3.Entity
 import androidx.room3.Index
 import androidx.room3.PrimaryKey
+import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 
 // Tabla "solicitudes". El índice único impide repetir el código.
 @Entity(
@@ -34,5 +35,11 @@ data class SolicitudEntity(
     val creadoPorUsuarioId: Int? = null,
 
     // Técnico asignado. null = aún sin asignar.
-    val asignadoAUsuarioId: Int? = null
+    val asignadoAUsuarioId: Int? = null,
+
+    // Baja, Media, Alta o Urgente (texto de PrioridadSolicitud). Desde la versión 4.
+    val prioridad: String = PrioridadSolicitud.POR_DEFECTO.texto,
+
+    // Fecha del último cambio, en milisegundos. Parte igual a la fecha de creación.
+    val ultimaActualizacion: Long = fechaCreacion
 )
