@@ -13,7 +13,7 @@ class AuthRepository(private val dao: UsuarioDao) {
     // Devuelve el usuario si las credenciales son correctas, o el error si no.
     suspend fun iniciarSesion(nombreUsuario: String, contrasena: String): Result<UsuarioEntity> {
         return try {
-            crearUsuarioDemoSiHaceFalta()
+            crearUsuariosDemoSiHaceFalta()
 
             val usuario = dao.buscarPorNombre(nombreUsuario.trim())
 
@@ -30,29 +30,18 @@ class AuthRepository(private val dao: UsuarioDao) {
         }
     }
 
-    // Crea las cuentas ficticias de prueba que todavía no existan.
-    private suspend fun crearUsuarioDemoSiHaceFalta() {
-        val usuariosDemo = listOf(
-            UsuarioEntity(
-                nombreUsuario = "demo",
-                contrasena = "1234",
-                nombre = "Cliente Demo",
-                rol = "cliente"
-            ),
-            UsuarioEntity(
-                nombreUsuario = "admin",
-                contrasena = "1234",
-                nombre = "Administradora Demo",
-                rol = "administrador"
-            ),
-            UsuarioEntity(
-                nombreUsuario = "tecnico",
-                contrasena = "1234",
-                nombre = "Técnico Demo",
-                rol = "tecnico"
-            )
-        )
+    // Cuentas ficticias de prueba: 3 clientes, 1 administrador y 2 técnicos (clave 1234).
+    private val usuariosDemo = listOf(
+        UsuarioEntity(nombreUsuario = "demo", contrasena = "1234", nombre = "Cliente Demo", rol = "cliente"),
+        UsuarioEntity(nombreUsuario = "cliente2", contrasena = "1234", nombre = "Cliente Dos", rol = "cliente"),
+        UsuarioEntity(nombreUsuario = "cliente3", contrasena = "1234", nombre = "Cliente Tres", rol = "cliente"),
+        UsuarioEntity(nombreUsuario = "admin", contrasena = "1234", nombre = "Administradora Demo", rol = "administrador"),
+        UsuarioEntity(nombreUsuario = "tecnico", contrasena = "1234", nombre = "Técnico Demo", rol = "tecnico"),
+        UsuarioEntity(nombreUsuario = "tecnico2", contrasena = "1234", nombre = "Técnico Dos", rol = "tecnico")
+    )
 
+    // Crea las cuentas de prueba que todavía no existan.
+    private suspend fun crearUsuariosDemoSiHaceFalta() {
         usuariosDemo.forEach { usuarioDemo ->
             if (dao.buscarPorNombre(usuarioDemo.nombreUsuario) == null) {
                 dao.insertar(usuarioDemo)

@@ -18,20 +18,26 @@ object ReglasTransicion {
     )
 
     private val REGLAS = listOf(
+        // Administrador
         Regla(setOf(RECIBIDA), EN_REVISION, setOf(ADMINISTRADOR)),
-        Regla(setOf(EN_REVISION), ASIGNADA, setOf(ADMINISTRADOR)),
+        Regla(setOf(RECIBIDA, EN_REVISION), ASIGNADA, setOf(ADMINISTRADOR)),
         Regla(setOf(EN_REVISION), PENDIENTE_INFORMACION, setOf(ADMINISTRADOR)),
+        Regla(
+            setOf(RECIBIDA, EN_REVISION, PENDIENTE_INFORMACION, ASIGNADA, EN_PROCESO),
+            CANCELADA,
+            setOf(ADMINISTRADOR)
+        ),
+
+        // Técnico
         Regla(setOf(ASIGNADA), EN_PROCESO, setOf(TECNICO)),
         Regla(setOf(ASIGNADA, EN_PROCESO), PENDIENTE_INFORMACION, setOf(TECNICO)),
         Regla(setOf(EN_PROCESO), RESUELTA, setOf(TECNICO)),
+
+        // Cliente: al responder vuelve a En proceso (si ya hay técnico) o a En revisión
+        Regla(setOf(PENDIENTE_INFORMACION), EN_PROCESO, setOf(CLIENTE)),
         Regla(setOf(PENDIENTE_INFORMACION), EN_REVISION, setOf(CLIENTE)),
         Regla(setOf(RESUELTA), CERRADA, setOf(CLIENTE, ADMINISTRADOR)),
-        Regla(setOf(RESUELTA), EN_REVISION, setOf(CLIENTE)),
-        Regla(
-            setOf(RECIBIDA, EN_REVISION, PENDIENTE_INFORMACION, EN_PROCESO),
-            CANCELADA,
-            setOf(ADMINISTRADOR)
-        )
+        Regla(setOf(RESUELTA), EN_REVISION, setOf(CLIENTE))
     )
 
     // ¿Puede este perfil pasar la solicitud de un estado a otro?
@@ -46,6 +52,11 @@ object ReglasTransicion {
             .map { it.hasta }
     }
 
+    // Estado al que pasa una solicitud cuando el cliente responde la información pedida.
+    fun destinoAlResponder(tieneTecnico: Boolean): EstadoSolicitud {
+        return if (tieneTecnico) EN_PROCESO else EN_REVISION
+    }
+
     // Cancelar exige escribir un motivo.
     fun requiereMotivo(hasta: EstadoSolicitud): Boolean {
         return hasta == CANCELADA
@@ -54,6 +65,11 @@ object ReglasTransicion {
     // Solo el administrador cambia la prioridad.
     fun puedeCambiarPrioridad(rol: String): Boolean {
         return rol == ADMINISTRADOR
+    }
+
+    // Asignar por primera vez: solo el administrador, desde Recibida o En revisión.
+    fun puedeAsignar(rol: String, estado: EstadoSolicitud): Boolean {
+        return rol == ADMINISTRADOR && (estado == RECIBIDA || estado == EN_REVISION)
     }
 
     // Reasignar: solo el administrador y solo mientras está Asignada o En proceso.

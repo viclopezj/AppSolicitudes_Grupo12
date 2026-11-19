@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Permiso para consumir la API REST (catálogo de servicios) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Permiso para usar la cámara (sirve para el escáner QR y para tomar la foto) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
@@ -31,10 +34,7 @@
             </intent-filter>
         </activity>
 
-        <!-- FileProvider: permite que la app de cámara del teléfono guarde la foto
-             dentro de la carpeta privada de nuestra app, sin dar acceso al resto de archivos.
-             authorities debe ser único; usamos el id de la app + ".fileprovider".
-             La Activity de la cámara no lo necesita: lo usará TakePicture() más adelante. -->
+        <!-- FileProvider: permite que la app de cámara guarde la foto en la carpeta privada de la app -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
