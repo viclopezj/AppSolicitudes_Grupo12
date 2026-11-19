@@ -1,7 +1,6 @@
 package com.example.appsolicitudes_grupo12.ui.screen
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,12 +15,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -36,7 +34,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,47 +45,43 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
-import com.example.appsolicitudes_grupo12.model.FiltroSolicitudes
-import com.example.appsolicitudes_grupo12.model.ListaSolicitudesUiState
-import com.example.appsolicitudes_grupo12.model.OrdenSolicitudes
-import com.example.appsolicitudes_grupo12.viewModel.ListaSolicitudesViewModel
-import com.example.appsolicitudes_grupo12.viewModel.SolicitudViewModel
-import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
+import com.example.appsolicitudes_grupo12.model.solicitud.CategoriasSolicitud
+import com.example.appsolicitudes_grupo12.state.FiltroSolicitudes
+import com.example.appsolicitudes_grupo12.state.ListaSolicitudesUiState
+import com.example.appsolicitudes_grupo12.state.OrdenSolicitudes
+import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.components.EtiquetaEstado
+import com.example.appsolicitudes_grupo12.viewmodel.ListaSolicitudesViewModel
 
-// Pantalla que muestra las solicitudes guardadas en Room.
-// Solo MUESTRA el estado que le entrega el ViewModel: no lee la base de datos ni filtra por su cuenta.
-// onAgregarClick: lo que pasa al pulsar el botón + (la navegación lo usa para ir al formulario).
-// onSolicitudClick: lo que pasa al tocar una tarjeta. Recibe el id de la solicitud
-// (la navegación lo usa para abrir el detalle).
-// onEscanearClick: lo que pasa al pulsar "Escanear QR" de la barra superior
-// (la navegación lo usa para abrir el escáner).
+// Pantalla con las solicitudes visibles para el usuario. Solo muestra el estado del ViewModel.
+// onAgregarClick: botón + (cliente). onSolicitudClick: recibe el id de la tarjeta tocada.
+// onEscanearClick: botón "Escanear QR" de la barra superior.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaSolicitudesScreen(
-    viewModel: ListaSolicitudesViewModel = viewModel(),
+    usuarioId: Int,
     rolUsuario: String,
+    viewModel: ListaSolicitudesViewModel = viewModel(
+        factory = ListaSolicitudesViewModel.factory(LocalContext.current, usuarioId, rolUsuario)
+    ),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onAgregarClick: () -> Unit = {},
     onSolicitudClick: (Int) -> Unit = {},
     onEscanearClick: () -> Unit = {}
 ) {
-    // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
 
-    // Scaffold = estructura base: barra superior, contenido y botón flotante
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Solicitudes") },
-                // "actions" son los botones que van a la derecha de la barra superior.
-                // Se usa un botón de texto porque Material3 ya no trae un ícono de QR
-                // en el paquete básico de íconos y no queremos agregar el paquete extendido.
+                // Botón de texto: Material3 básico no trae ícono de QR
                 actions = {
                     TextButton(onClick = onEscanearClick) {
                         Text("Escanear QR")
@@ -113,67 +106,61 @@ fun ListaSolicitudesScreen(
                 .fillMaxSize()
                 .padding(paddingInterno)
         ) {
-            // Según el estado del ViewModel, se dibuja una cosa u otra.
-            // Kotlin obliga a cubrir los 4 casos.
-            // AnimatedContent hace un fundido suave al pasar de un estado a otro
-            // (Loading -> Success, Success -> Empty, etc.). contentKey usa solo el TIPO de estado:
-            // así cambiar un filtro (que crea otro Success) no repite la animación.
+            // Fundido entre estados. contentKey usa solo el tipo de estado,
+            // así cambiar un filtro no repite la animación.
             AnimatedContent(
                 targetState = estado,
                 contentKey = { it::class },
                 transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
                 label = "estadoLista"
             ) { actual ->
-            when (actual) {
-                is ListaSolicitudesUiState.Loading -> ContenidoCargando()
+                when (actual) {
+                    is ListaSolicitudesUiState.Loading -> ContenidoCargando()
 
-                is ListaSolicitudesUiState.Success -> {
-                    // Los filtros van arriba y la lista (o el aviso de "sin resultados") debajo
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        FiltrosLista(
-                            filtro = actual.filtro,
-                            onCategoriaChange = viewModel::onCategoriaFiltroChange,
-                            onOrdenChange = viewModel::onOrdenChange
-                        )
+                    is ListaSolicitudesUiState.Success -> {
+                        // Filtros arriba; debajo la lista o el aviso de "sin resultados"
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            FiltrosLista(
+                                filtro = actual.filtro,
+                                onCategoriaChange = viewModel::onCategoriaFiltroChange,
+                                onOrdenChange = viewModel::onOrdenChange
+                            )
 
-                        if (actual.solicitudes.isEmpty()) {
-                            // Hay solicitudes guardadas, pero ninguna coincide con el filtro
-                            ContenidoSinResultados(
-                                onQuitarFiltro = { viewModel.onCategoriaFiltroChange(null) }
-                            )
-                        } else {
-                            ContenidoLista(
-                                solicitudes = actual.solicitudes,
-                                onSolicitudClick = onSolicitudClick,
-                                windowSizeClass = windowSizeClass
-                            )
+                            if (actual.solicitudes.isEmpty()) {
+                                // Hay solicitudes guardadas, pero ninguna coincide con el filtro
+                                ContenidoSinResultados(
+                                    onQuitarFiltro = { viewModel.onCategoriaFiltroChange(null) }
+                                )
+                            } else {
+                                ContenidoLista(
+                                    solicitudes = actual.solicitudes,
+                                    onSolicitudClick = onSolicitudClick,
+                                    windowSizeClass = windowSizeClass
+                                )
+                            }
                         }
                     }
+
+                    is ListaSolicitudesUiState.Empty -> ContenidoVacio()
+
+                    is ListaSolicitudesUiState.Error -> ContenidoError(
+                        mensaje = actual.mensaje,
+                        onReintentar = viewModel::cargarSolicitudes
+                    )
                 }
-
-                is ListaSolicitudesUiState.Empty -> ContenidoVacio()
-
-                is ListaSolicitudesUiState.Error -> ContenidoError(
-                    mensaje = actual.mensaje,
-                    onReintentar = viewModel::cargarSolicitudes
-                )
-            }
             }
         }
     }
 }
 
-// ---------- Filtros: categoría y orden ----------
-// Dos "chips" (botones ovalados) que abren un menú al tocarlos.
-// Solo MUESTRAN lo elegido y avisan qué se eligió: el filtrado lo hace el ViewModel.
-// La fila se puede deslizar hacia los lados, por si los textos no caben en pantallas pequeñas.
+// Chips de categoría y orden. Solo muestran lo elegido: el filtrado lo hace el ViewModel.
+// La fila se desliza hacia los lados si no caben en pantallas pequeñas.
 @Composable
 private fun FiltrosLista(
     filtro: FiltroSolicitudes,
     onCategoriaChange: (String?) -> Unit,
     onOrdenChange: (OrdenSolicitudes) -> Unit
 ) {
-    // Recuerdan si cada menú está abierto o cerrado
     var menuCategoriaAbierto by remember { mutableStateOf(false) }
     var menuOrdenAbierto by remember { mutableStateOf(false) }
 
@@ -186,11 +173,10 @@ private fun FiltrosLista(
         verticalAlignment = Alignment.CenterVertically
     ) {
 
-        // ---------- Chip de categoría ----------
-        // El Box agrupa el chip con su menú, para que el menú se abra justo debajo de él
+        // Chip de categoría (el Box agrupa el chip con su menú)
         Box {
             FilterChip(
-                selected = filtro.categoria != null,   // se resalta cuando hay un filtro activo
+                selected = filtro.categoria != null,
                 onClick = { menuCategoriaAbierto = true },
                 label = { Text("Categoría: ${filtro.categoria ?: "Todas"} ▾") }
             )
@@ -207,8 +193,7 @@ private fun FiltrosLista(
                         menuCategoriaAbierto = false
                     }
                 )
-                // Una opción por cada categoría definida en SolicitudViewModel
-                SolicitudViewModel.CATEGORIAS.forEach { categoria ->
+                CategoriasSolicitud.LISTA.forEach { categoria ->
                     DropdownMenuItem(
                         text = { Text(categoria) },
                         onClick = {
@@ -220,10 +205,10 @@ private fun FiltrosLista(
             }
         }
 
-        // ---------- Chip de orden ----------
+        // Chip de orden (se resalta si no es el orden normal)
         Box {
             FilterChip(
-                selected = filtro.orden != OrdenSolicitudes.RECIENTES,   // se resalta si no es el orden normal
+                selected = filtro.orden != OrdenSolicitudes.RECIENTES,
                 onClick = { menuOrdenAbierto = true },
                 label = { Text("Orden: ${filtro.orden.etiqueta} ▾") }
             )
@@ -232,7 +217,6 @@ private fun FiltrosLista(
                 expanded = menuOrdenAbierto,
                 onDismissRequest = { menuOrdenAbierto = false }
             ) {
-                // entries = las dos opciones del enum: RECIENTES y ANTIGUAS
                 OrdenSolicitudes.entries.forEach { orden ->
                     DropdownMenuItem(
                         text = { Text(orden.etiqueta) },
@@ -247,7 +231,7 @@ private fun FiltrosLista(
     }
 }
 
-// ---------- Estado Loading: indicador de carga al centro ----------
+// Loading: indicador de carga al centro.
 @Composable
 private fun ContenidoCargando() {
     Box(
@@ -258,7 +242,7 @@ private fun ContenidoCargando() {
     }
 }
 
-// ---------- Estado Empty: todavía no hay solicitudes ----------
+// Empty: todavía no hay solicitudes.
 @Composable
 private fun ContenidoVacio() {
     Column(
@@ -283,7 +267,7 @@ private fun ContenidoVacio() {
     }
 }
 
-// ---------- Sin resultados: hay solicitudes, pero ninguna coincide con el filtro ----------
+// Hay solicitudes, pero ninguna coincide con el filtro.
 @Composable
 private fun ContenidoSinResultados(onQuitarFiltro: () -> Unit) {
     Column(
@@ -307,7 +291,7 @@ private fun ContenidoSinResultados(onQuitarFiltro: () -> Unit) {
     }
 }
 
-// ---------- Estado Error: mensaje y botón para reintentar ----------
+// Error: mensaje y botón para reintentar.
 @Composable
 private fun ContenidoError(
     mensaje: String,
@@ -335,32 +319,29 @@ private fun ContenidoError(
     }
 }
 
-// ---------- Estado Success: la lista de solicitudes ----------
+// Success: la lista de solicitudes (una columna en ventanas compactas, varias en amplias).
 @Composable
 private fun ContenidoLista(
     solicitudes: List<SolicitudEntity>,
     onSolicitudClick: (Int) -> Unit,
     windowSizeClass: AppWindowSizeClass
 ) {
+    // El espacio inferior evita que el botón + tape la última tarjeta
     val padding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 88.dp)
     if (windowSizeClass == AppWindowSizeClass.Compact) {
-        // LazyColumn solo dibuja los elementos visibles: es la forma correcta de hacer listas
         LazyColumn(
-            // El espacio inferior evita que el botón + tape la última tarjeta
             contentPadding = padding,
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            // key = id ayuda a Compose a identificar cada tarjeta cuando la lista cambia
             items(items = solicitudes, key = { it.id }) { solicitud ->
                 TarjetaSolicitud(
                     solicitud = solicitud,
-                    onClick = { onSolicitudClick(solicitud.id) }   // avisa qué solicitud se tocó
+                    onClick = { onSolicitudClick(solicitud.id) }
                 )
             }
         }
     } else {
-        // En ventanas amplias se muestran varias columnas cuando caben las tarjetas.
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 320.dp),
             contentPadding = padding,
@@ -375,8 +356,7 @@ private fun ContenidoLista(
     }
 }
 
-// Una tarjeta por solicitud: código, estado, título y categoría.
-// Al pasarle onClick a la Card, toda la tarjeta se puede tocar.
+// Tarjeta de una solicitud: código, estado, título y categoría. Toda la tarjeta se puede tocar.
 @Composable
 private fun TarjetaSolicitud(
     solicitud: SolicitudEntity,
@@ -392,7 +372,6 @@ private fun TarjetaSolicitud(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Fila superior: código a la izquierda, etiqueta de estado a la derecha
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -417,49 +396,5 @@ private fun TarjetaSolicitud(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-    }
-}
-
-// Etiqueta de color con el nombre del estado.
-// Cada estado tiene su color; cuando el estado cambia (por ejemplo, al asignar un técnico)
-// el color se transforma suavemente gracias a animateColorAsState.
-// Es pública (sin "private") porque DetalleSolicitudScreen y QrScannerScreen también la usan.
-@Composable
-fun EtiquetaEstado(estado: String) {
-    val colores = MaterialTheme.colorScheme
-
-    // Cada estado tiene un par: color de fondo y color del texto
-    val (fondo: Color, texto: Color) = when (estado) {
-        "Recibida" -> colores.primaryContainer to colores.onPrimaryContainer
-        "En revisión", "Pendiente de información" ->
-            colores.tertiaryContainer to colores.onTertiaryContainer
-        "Asignada", "En proceso", "Resuelta", "Cerrada" ->
-            colores.secondaryContainer to colores.onSecondaryContainer
-        "Cancelada" -> colores.errorContainer to colores.onErrorContainer
-        else -> colores.surfaceVariant to colores.onSurfaceVariant
-    }
-
-    // animateColorAsState: en vez de saltar de un color a otro, lo hace en 400 ms
-    val fondoAnimado by animateColorAsState(
-        targetValue = fondo,
-        animationSpec = tween(durationMillis = 400),
-        label = "fondoEtiqueta"
-    )
-    val textoAnimado by animateColorAsState(
-        targetValue = texto,
-        animationSpec = tween(durationMillis = 400),
-        label = "textoEtiqueta"
-    )
-
-    Surface(
-        shape = RoundedCornerShape(50),   // bordes totalmente redondeados
-        color = fondoAnimado
-    ) {
-        Text(
-            text = estado,
-            style = MaterialTheme.typography.labelMedium,
-            color = textoAnimado,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-        )
     }
 }

@@ -7,15 +7,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.appsolicitudes_grupo12.ui.adaptive.rememberAppWindowSizeClass
 import com.example.appsolicitudes_grupo12.ui.screen.AsignarSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.DetalleSolicitudScreen
+import com.example.appsolicitudes_grupo12.ui.screen.FormularioScreen
 import com.example.appsolicitudes_grupo12.ui.screen.ListaSolicitudesScreen
 import com.example.appsolicitudes_grupo12.ui.screen.LoginScreen
 import com.example.appsolicitudes_grupo12.ui.screen.MenuScreen
 import com.example.appsolicitudes_grupo12.ui.screen.QrScannerScreen
-import com.example.appsolicitudes_grupo12.ui.screen.SolicitudFormScreen
-import com.example.appsolicitudes_grupo12.utils.rememberAppWindowSizeClass
 
+// Rutas de la app y funciones para armarlas con sus argumentos.
 object Rutas {
     const val LOGIN = "login"
     const val MENU = "menu/{nombre}/{usuarioId}/{rol}"
@@ -41,10 +42,11 @@ object Rutas {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    // Detecta el ancho disponible y se actualiza al cambiar el tamaño de ventana.
+    // Ancho disponible; se actualiza al cambiar el tamaño de ventana
     val windowSizeClass = rememberAppWindowSizeClass()
 
     NavHost(navController = navController, startDestination = Rutas.LOGIN) {
+
         composable(Rutas.LOGIN) {
             LoginScreen(
                 windowSizeClass = windowSizeClass,
@@ -100,7 +102,9 @@ fun AppNavigation() {
         ) { entrada ->
             val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
             val rol = entrada.arguments?.getString("rol").orEmpty()
+
             ListaSolicitudesScreen(
+                usuarioId = usuarioId,
                 rolUsuario = rol,
                 windowSizeClass = windowSizeClass,
                 onAgregarClick = {
@@ -124,7 +128,10 @@ fun AppNavigation() {
         ) { entrada ->
             val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
             val rol = entrada.arguments?.getString("rol").orEmpty()
-            SolicitudFormScreen(
+
+            FormularioScreen(
+                usuarioId = usuarioId,
+                rol = rol,
                 windowSizeClass = windowSizeClass,
                 onGuardado = {
                     navController.navigate(Rutas.lista(usuarioId, rol)) {
@@ -143,8 +150,15 @@ fun AppNavigation() {
                 navArgument("usuarioId") { type = NavType.IntType },
                 navArgument("rol") { type = NavType.StringType }
             )
-        ) {
+        ) { entrada ->
+            val id = entrada.arguments?.getInt("id") ?: -1
+            val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
+            val rol = entrada.arguments?.getString("rol").orEmpty()
+
             DetalleSolicitudScreen(
+                id = id,
+                usuarioId = usuarioId,
+                rol = rol,
                 windowSizeClass = windowSizeClass,
                 onVolver = { navController.popBackStack() }
             )
@@ -159,7 +173,10 @@ fun AppNavigation() {
         ) { entrada ->
             val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
             val rol = entrada.arguments?.getString("rol").orEmpty()
+
             QrScannerScreen(
+                usuarioId = usuarioId,
+                rol = rol,
                 windowSizeClass = windowSizeClass,
                 onVolver = { navController.popBackStack() },
                 onAbrirDetalle = { id ->
@@ -176,9 +193,11 @@ fun AppNavigation() {
             )
         ) { entrada ->
             val rol = entrada.arguments?.getString("rol").orEmpty()
+
             AsignarSolicitudesScreen(
-                windowSizeClass = windowSizeClass,
+                rol = rol,
                 puedeAdministrar = rol == "administrador",
+                windowSizeClass = windowSizeClass,
                 onVolver = { navController.popBackStack() }
             )
         }

@@ -7,8 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import com.example.appsolicitudes_grupo12.navigation.AppNavigation
 import com.example.appsolicitudes_grupo12.ui.theme.AppSolicitudes_Grupo12Theme
 
-// Punto de entrada de la app. Solo prepara el tema y entrega el control a la navegación.
-// AppNavigation decide qué pantalla se muestra: primero la lista y, desde ahí, el formulario.
+// Punto de entrada: aplica el tema y entrega el control a la navegación (parte en el login).
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

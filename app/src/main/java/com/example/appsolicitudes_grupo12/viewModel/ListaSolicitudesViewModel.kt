@@ -1,16 +1,16 @@
-package com.example.appsolicitudes_grupo12.viewModel
+package com.example.appsolicitudes_grupo12.viewmodel
 
-import android.app.Application
+import android.content.Context
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.appsolicitudes_grupo12.data.local.AppDatabase
-import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
-import com.example.appsolicitudes_grupo12.data.repository.SolicitudRepository
-import com.example.appsolicitudes_grupo12.model.FiltroSolicitudes
-import com.example.appsolicitudes_grupo12.model.ListaSolicitudesUiState
-import com.example.appsolicitudes_grupo12.model.OrdenSolicitudes
+import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
+import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
+import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
+import com.example.appsolicitudes_grupo12.state.FiltroSolicitudes
+import com.example.appsolicitudes_grupo12.state.ListaSolicitudesUiState
+import com.example.appsolicitudes_grupo12.state.OrdenSolicitudes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,63 +20,43 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-// ViewModel de la pantalla de lista. Lee las solicitudes guardadas, les aplica el filtro
-// y el orden elegidos, y las convierte en uno de los 4 estados: Loading, Success, Empty o Error.
-// Es independiente de SolicitudViewModel (el del formulario), pero ambos usan
-// la MISMA base de datos, porque AppDatabase entrega siempre una única instancia.
+// ViewModel de la lista: lee las solicitudes visibles para el usuario, aplica filtro y orden,
+// y las convierte en Loading, Success, Empty o Error.
 class ListaSolicitudesViewModel(
-    app: Application,
-    savedStateHandle: SavedStateHandle
-) : AndroidViewModel(app) {
+    private val repositorio: SolicitudRepository,
+    private val usuarioId: Int,
+    private val rol: String
+) : ViewModel() {
 
-    private val usuarioId = savedStateHandle.get<Int>("usuarioId") ?: -1
-    private val rol = savedStateHandle.get<String>("rol") ?: ""
-
-    // Cadena de acceso a datos: Database -> DAO -> Repository
-    private val repositorio = SolicitudRepository(
-        AppDatabase.getDatabase(app).solicitudDao()
-    )
-
-    // Estado privado y modificable. Parte en Loading mientras llegan los datos.
+    // Parte en Loading mientras llegan los datos
     private val _estado = MutableStateFlow<ListaSolicitudesUiState>(
         ListaSolicitudesUiState.Loading
     )
-
-    // Estado público de solo lectura: la pantalla lo observa
     val estado: StateFlow<ListaSolicitudesUiState> = _estado.asStateFlow()
 
-    // Filtro y orden elegidos. Parte sin filtro y con las más recientes primero.
-    // Es privado: la pantalla solo lo ve dentro del estado Success.
+    // Filtro y orden elegidos (sin filtro y más recientes primero al inicio)
     private val _filtro = MutableStateFlow(FiltroSolicitudes())
 
-    // Guarda la lectura en curso, para poder cancelarla antes de reintentar
+    // Lectura en curso, para cancelarla antes de reintentar
     private var trabajoLectura: Job? = null
 
-    // Se ejecuta al crear el ViewModel: empieza a leer las solicitudes
     init {
         cargarSolicitudes()
     }
 
-    // Lee las solicitudes de Room y actualiza el estado.
-    // Es pública porque el botón "Reintentar" de la pantalla también la llama.
-    fun cargarSolicitudes() {
-        // Si había una lectura anterior, se cancela para no tener dos al mismo tiempo
-        trabajoLectura?.cancel()
+    // ---------- Lectura ----------
 
-        // Estado Loading mientras llegan los datos
+    // Lee las solicitudes de Room. También la usa el botón "Reintentar".
+    fun cargarSolicitudes() {
+        trabajoLectura?.cancel()
         _estado.value = ListaSolicitudesUiState.Loading
 
-        // launch inicia una corrutina: la lectura ocurre sin congelar la pantalla
         trabajoLectura = viewModelScope.launch {
-            // combine junta dos fuentes y avisa cuando CUALQUIERA cambia:
-            //   - la lista de Room (cuando se guarda o edita una solicitud)
-            //   - el filtro (cuando la persona elige otra categoría u otro orden)
-            // Así la lista se actualiza sola en los dos casos.
+            // combine avisa cuando cambia la lista de Room o el filtro
             combine(repositorio.obtenerSolicitudes(usuarioId, rol), _filtro) { lista, filtro ->
                 lista to filtro
             }
                 .catch { error ->
-                    // Estado Error: se registra en el Logcat y se muestra un mensaje amable
                     Log.e("ListaSolicitudesVM", "Error al leer las solicitudes", error)
                     _estado.value = ListaSolicitudesUiState.Error(
                         "No se pudieron cargar las solicitudes. Inténtalo de nuevo."
@@ -84,7 +64,7 @@ class ListaSolicitudesViewModel(
                 }
                 .collect { (lista, filtro) ->
                     _estado.value = if (lista.isEmpty()) {
-                        ListaSolicitudesUiState.Empty            // no hay ninguna guardada
+                        ListaSolicitudesUiState.Empty
                     } else {
                         ListaSolicitudesUiState.Success(
                             solicitudes = aplicarFiltro(lista, filtro),
@@ -97,20 +77,19 @@ class ListaSolicitudesViewModel(
 
     // ---------- Eventos de los filtros ----------
 
-    // Elige una categoría para filtrar. null = mostrar todas.
+    // Filtra por categoría. null = todas.
     fun onCategoriaFiltroChange(categoria: String?) {
         _filtro.update { it.copy(categoria = categoria) }
     }
 
-    // Elige si se ven primero las más recientes o las más antiguas.
+    // Cambia el orden por fecha.
     fun onOrdenChange(orden: OrdenSolicitudes) {
         _filtro.update { it.copy(orden = orden) }
     }
 
     // ---------- Reglas del filtrado ----------
 
-    // Deja solo las solicitudes de la categoría elegida (si hay una) y las ordena por fecha.
-    // Es una función simple que recibe una lista y devuelve otra, sin tocar la base de datos.
+    // Deja solo la categoría elegida (si hay) y ordena por fecha.
     private fun aplicarFiltro(
         lista: List<SolicitudEntity>,
         filtro: FiltroSolicitudes
@@ -127,5 +106,18 @@ class ListaSolicitudesViewModel(
             OrdenSolicitudes.RECIENTES -> filtradas.sortedByDescending { it.fechaCreacion }
             OrdenSolicitudes.ANTIGUAS -> filtradas.sortedBy { it.fechaCreacion }
         }
+    }
+
+    // ---------- Fábrica ----------
+
+    companion object {
+        fun factory(context: Context, usuarioId: Int, rol: String): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    val dao = AppDatabase.getDatabase(context).solicitudDao()
+                    return ListaSolicitudesViewModel(SolicitudRepository(dao), usuarioId, rol) as T
+                }
+            }
     }
 }

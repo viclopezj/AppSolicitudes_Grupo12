@@ -15,10 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
@@ -44,30 +44,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.appsolicitudes_grupo12.data.local.SolicitudEntity
-import com.example.appsolicitudes_grupo12.data.local.UsuarioEntity
-import com.example.appsolicitudes_grupo12.viewModel.AsignarSolicitudesViewModel
-import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
+import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.components.EtiquetaEstado
+import com.example.appsolicitudes_grupo12.viewmodel.AsignarSolicitudesViewModel
 import kotlinx.coroutines.delay
 
+// Pantalla del administrador para asignar cada solicitud a un técnico.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AsignarSolicitudesScreen(
-    viewModel: AsignarSolicitudesViewModel = viewModel(),
+    rol: String,
     puedeAdministrar: Boolean,
+    viewModel: AsignarSolicitudesViewModel = viewModel(
+        factory = AsignarSolicitudesViewModel.factory(LocalContext.current, rol)
+    ),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onVolver: () -> Unit
 ) {
     val estado by viewModel.estado.collectAsState()
 
-    // Recuerda el último mensaje de éxito: así, mientras el aviso se esconde con animación,
-    // el texto no desaparece de golpe.
+    // Recuerda el último mensaje de éxito para que no desaparezca de golpe mientras el aviso se esconde
     var ultimoMensaje by remember { mutableStateOf("") }
     estado.mensaje?.let { ultimoMensaje = it }
 
-    // El aviso de éxito se cierra solo a los 3 segundos (si llega otro, el contador se reinicia)
+    // El aviso de éxito se cierra solo a los 3 segundos
     LaunchedEffect(estado.mensaje) {
         if (estado.mensaje != null) {
             delay(3000)
@@ -119,7 +124,7 @@ fun AsignarSolicitudesScreen(
             )
 
             else -> Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                // AnimatedVisibility: el aviso aparece y se esconde deslizando y con fundido
+                // El aviso de éxito aparece y se esconde con animación
                 AnimatedVisibility(
                     visible = estado.mensaje != null,
                     enter = fadeIn() + expandVertically(),
@@ -147,7 +152,7 @@ fun AsignarSolicitudesScreen(
                         }
                     }
                 } else {
-                    // En ventanas amplias, distribuye las asignaciones en columnas.
+                    // En ventanas amplias, las tarjetas se reparten en columnas
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(minSize = 340.dp),
                         contentPadding = paddingList,
@@ -169,6 +174,7 @@ fun AsignarSolicitudesScreen(
     }
 }
 
+// Tarjeta de una solicitud con el selector de técnico y el botón de asignar.
 @Composable
 private fun TarjetaAsignacion(
     solicitud: SolicitudEntity,
@@ -193,7 +199,6 @@ private fun TarjetaAsignacion(
         ) {
             Text(solicitud.codigo, color = MaterialTheme.colorScheme.primary)
             Text(solicitud.titulo, style = MaterialTheme.typography.titleMedium)
-            // La etiqueta cambia de color con animación cuando se asigna el técnico
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -237,6 +242,7 @@ private fun TarjetaAsignacion(
     }
 }
 
+// Mensaje centrado para los casos sin contenido o sin permiso.
 @Composable
 private fun MensajeAsignaciones(mensaje: String, modifier: Modifier = Modifier) {
     Box(

@@ -1,86 +1,64 @@
-package com.example.appsolicitudes_grupo12.viewModel
+package com.example.appsolicitudes_grupo12.viewmodel
 
-import android.app.Application
+import android.content.Context
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.appsolicitudes_grupo12.data.local.AppDatabase
-import com.example.appsolicitudes_grupo12.data.repository.SolicitudNoEncontradaException
-import com.example.appsolicitudes_grupo12.data.repository.SolicitudRepository
-import com.example.appsolicitudes_grupo12.model.DetalleSolicitudUiState
-import com.example.appsolicitudes_grupo12.model.EdicionSolicitud
-import com.example.appsolicitudes_grupo12.model.SolicitudErrores
+import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
+import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudNoEncontradaException
+import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
+import com.example.appsolicitudes_grupo12.model.solicitud.ValidadorSolicitud
+import com.example.appsolicitudes_grupo12.state.DetalleSolicitudUiState
+import com.example.appsolicitudes_grupo12.state.EdicionSolicitud
+import com.example.appsolicitudes_grupo12.state.FormularioErrores
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-// ViewModel de la pantalla de detalle. Lee UNA solicitud, deja pasar del modo lectura
-// al modo edición, valida los cambios y los guarda.
-// No conoce nada de Compose: la pantalla solo lo observa y le envía eventos.
-// SavedStateHandle es una "mochila" que trae los datos de la ruta de navegación.
-// De ahí sacamos el id de la solicitud que se pulsó en la lista.
+// ViewModel del detalle: lee UNA solicitud, pasa de lectura a edición, valida y guarda cambios.
 class DetalleSolicitudViewModel(
-    app: Application,
-    savedStateHandle: SavedStateHandle
-) : AndroidViewModel(app) {
+    private val repositorio: SolicitudRepository,
+    private val id: Int,
+    private val usuarioId: Int,
+    private val rol: String
+) : ViewModel() {
 
-    // Cadena de acceso a datos: Database -> DAO -> Repository
-    private val repositorio = SolicitudRepository(
-        AppDatabase.getDatabase(app).solicitudDao()
-    )
-
-    // Id de la solicitud que se está viendo. Viene en la ruta como "detalle/{id}".
-    // Si por alguna razón no llega, se usa -1: no existe ninguna solicitud con ese id,
-    // así que la pantalla mostrará "No se encontró la solicitud" en vez de cerrarse.
-    private val id: Int = savedStateHandle.get<Int>("id") ?: -1
-    private val usuarioId: Int = savedStateHandle.get<Int>("usuarioId") ?: -1
-    private val rol: String = savedStateHandle.get<String>("rol") ?: ""
-
-    // Los clientes editan sus propias solicitudes y el administrador puede corregir cualquiera.
-    val puedeEditar: Boolean
-        get() = rol == "administrador" || rol == "cliente"
-
-    // Estado privado y modificable. Parte en Loading mientras llega la solicitud.
+    // Parte en Loading mientras llega la solicitud
     private val _estado = MutableStateFlow<DetalleSolicitudUiState>(
         DetalleSolicitudUiState.Loading
     )
-
-    // Estado público de solo lectura: la pantalla lo observa con collectAsState()
     val estado: StateFlow<DetalleSolicitudUiState> = _estado.asStateFlow()
 
-    // Se ejecuta al crear el ViewModel: empieza a leer la solicitud
+    // El cliente edita sus solicitudes y el administrador puede corregir cualquiera
+    val puedeEditar: Boolean
+        get() = rol == "administrador" || rol == "cliente"
+
     init {
         cargarSolicitud()
     }
 
     // ---------- Lectura ----------
 
-    // Lee la solicitud de Room y actualiza el estado.
-    // Es pública porque el botón "Reintentar" de la pantalla también la llama.
+    // Lee la solicitud de Room. También la usa el botón "Reintentar".
     fun cargarSolicitud() {
-        // Estado Loading mientras llegan los datos
         _estado.value = DetalleSolicitudUiState.Loading
 
-        // launch inicia una corrutina: la lectura ocurre sin congelar la pantalla
         viewModelScope.launch {
             repositorio.obtenerSolicitud(id, usuarioId, rol)
                 .onSuccess { solicitud ->
-                    // Estado Success en modo lectura (edicion = null)
                     _estado.value = DetalleSolicitudUiState.Success(solicitud)
                 }
                 .onFailure { error -> mostrarErrorDeLectura(error) }
         }
     }
 
-    // Convierte un fallo de lectura en el estado que corresponde:
-    // si la solicitud no existe -> NoEncontrada; si falló otra cosa -> Error con mensaje amable.
+    // Si la solicitud no existe -> NoEncontrada; si falló otra cosa -> Error con mensaje amable.
     private fun mostrarErrorDeLectura(error: Throwable) {
         _estado.value = if (error is SolicitudNoEncontradaException) {
             DetalleSolicitudUiState.NoEncontrada
         } else {
-            // Fallo técnico: se registra en el Logcat y se muestra un mensaje amable
             Log.e("DetalleSolicitudVM", "Error al leer la solicitud", error)
             DetalleSolicitudUiState.Error(
                 "No se pudo cargar la solicitud. Inténtalo de nuevo."
@@ -90,7 +68,7 @@ class DetalleSolicitudViewModel(
 
     // ---------- Modo lectura <-> modo edición ----------
 
-    // Pasa al modo edición. Los campos parten con los valores que ya están guardados.
+    // Pasa al modo edición con los valores ya guardados.
     fun iniciarEdicion() {
         if (!puedeEditar) return
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return
@@ -104,15 +82,14 @@ class DetalleSolicitudViewModel(
         )
     }
 
-    // Vuelve al modo lectura sin guardar: lo escrito se descarta y Room no se toca.
+    // Vuelve al modo lectura sin guardar.
     fun cancelarEdicion() {
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return
         _estado.value = actual.copy(edicion = null)
     }
 
     // ---------- Eventos de los campos ----------
-    // Cada función actualiza el valor y borra el error de ese campo
-    // cuando la persona vuelve a escribir (igual que en SolicitudViewModel).
+    // Cada función actualiza el valor y borra el error de ese campo.
 
     fun onTituloChange(valor: String) {
         modificarEdicion {
@@ -127,7 +104,7 @@ class DetalleSolicitudViewModel(
     }
 
     fun onCategoriaChange(valor: String) {
-        // También limpia el error del servicio, porque si es obligatorio depende de la categoría
+        // También limpia el error del servicio, porque su obligatoriedad depende de la categoría
         modificarEdicion {
             it.copy(
                 categoria = valor,
@@ -142,82 +119,50 @@ class DetalleSolicitudViewModel(
         }
     }
 
-    // Ayudante: aplica un cambio a la edición actual.
-    // Solo funciona si la pantalla está en modo edición; si no, no hace nada.
+    // Aplica un cambio a la edición actual (solo si está en modo edición).
     private fun modificarEdicion(cambio: (EdicionSolicitud) -> EdicionSolicitud) {
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return
         val edicion = actual.edicion ?: return
         _estado.value = actual.copy(edicion = cambio(edicion))
     }
 
-    // ---------- Reglas de negocio ----------
+    // ---------- Validación ----------
 
-    // Indica si el servicio relacionado es obligatorio para esa categoría.
-    // Usa la misma regla del formulario: las categorías sin servicio están en SolicitudViewModel.
-    // Es público para que la pantalla pueda mostrar "(opcional)" en la etiqueta.
-    fun servicioObligatorio(categoria: String): Boolean {
-        return categoria.isNotBlank() &&
-                categoria !in SolicitudViewModel.CATEGORIAS_SIN_SERVICIO
-    }
-
-    // Revisa todos los campos de la edición. Guarda los errores en el estado y devuelve
-    // true si todo es válido, false si hay al menos un error.
-    // Son las mismas reglas que valida el formulario de nueva solicitud.
+    // Revisa los campos de la edición. Devuelve true si todo es válido.
     private fun validarEdicion(): Boolean {
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return false
         val edicion = actual.edicion ?: return false
 
-        val errores = SolicitudErrores(
-            titulo = if (edicion.titulo.isBlank()) {
-                "El título es obligatorio"
-            } else null,
-
-            descripcion = when {
-                edicion.descripcion.isBlank() -> "La descripción es obligatoria"
-                edicion.descripcion.trim().length < SolicitudViewModel.DESCRIPCION_MINIMA ->
-                    "La descripción debe tener al menos ${SolicitudViewModel.DESCRIPCION_MINIMA} caracteres"
-                else -> null
-            },
-
-            categoria = if (edicion.categoria.isBlank()) {
-                "Selecciona una categoría"
-            } else null,
-
-            servicio = if (servicioObligatorio(edicion.categoria) && edicion.servicio.isBlank()) {
-                "Indica el servicio relacionado"
-            } else null
+        val errores = ValidadorSolicitud.validar(
+            titulo = edicion.titulo,
+            descripcion = edicion.descripcion,
+            categoria = edicion.categoria,
+            servicio = edicion.servicio
         )
 
         modificarEdicion { it.copy(errores = errores) }
 
-        // Si ningún campo tiene error, la edición es válida
-        return errores == SolicitudErrores()
+        return errores == FormularioErrores()
     }
 
     // ---------- Guardado ----------
 
-    // Valida y, solo si todo está bien, guarda los cambios.
-    // La pantalla únicamente llama a esta función al pulsar "Guardar cambios".
+    // Valida y, si todo está bien, guarda los cambios.
     fun guardarCambios() {
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return
         val edicion = actual.edicion ?: return
 
-        // Evita guardar dos veces si la persona pulsa el botón repetidamente
+        // Evita guardar dos veces
         if (edicion.guardando) return
-
-        // Si hay errores, se muestran en pantalla y no se guarda nada
         if (!validarEdicion()) return
 
-        // Estado Loading
         modificarEdicion { it.copy(guardando = true, errorGuardado = null) }
 
-        // launch inicia una corrutina: el guardado ocurre sin congelar la pantalla
         viewModelScope.launch {
-            // Se vuelven a leer los datos del estado, porque ya incluyen la validación
             val datos = (_estado.value as? DetalleSolicitudUiState.Success)?.edicion
                 ?: return@launch
 
-            val resultado = repositorio.actualizarSolicitud(
+            repositorio.actualizarSolicitud(
                 id = id,
                 usuarioId = usuarioId,
                 rol = rol,
@@ -226,19 +171,14 @@ class DetalleSolicitudViewModel(
                 categoria = datos.categoria,
                 servicio = datos.servicio
             )
-
-            resultado
                 .onSuccess {
-                    // Se vuelve a leer la solicitud para mostrar exactamente lo guardado.
-                    // Esa lectura deja la pantalla en modo lectura con los datos nuevos.
+                    // Se vuelve a leer para mostrar exactamente lo guardado
                     cargarDespuesDeGuardar()
                 }
                 .onFailure { error ->
-                    // Estado Error: se queda en modo edición y se muestra un mensaje
                     val mensaje = if (error is SolicitudNoEncontradaException) {
                         "La solicitud ya no existe."
                     } else {
-                        // Fallo técnico: se registra en el Logcat y se muestra un mensaje amable
                         Log.e("DetalleSolicitudVM", "Error al guardar los cambios", error)
                         "No se pudieron guardar los cambios. Inténtalo de nuevo."
                     }
@@ -247,8 +187,7 @@ class DetalleSolicitudViewModel(
         }
     }
 
-    // Lee la solicitud ya modificada y vuelve al modo lectura.
-    // No pasa por Loading para que la pantalla no parpadee.
+    // Lee la solicitud modificada y vuelve al modo lectura (sin pasar por Loading).
     private suspend fun cargarDespuesDeGuardar() {
         repositorio.obtenerSolicitud(id, usuarioId, rol)
             .onSuccess { solicitud ->
@@ -257,8 +196,30 @@ class DetalleSolicitudViewModel(
             .onFailure { error -> mostrarErrorDeLectura(error) }
     }
 
-    // Quita el mensaje de error de guardado cuando ya se mostró en el Snackbar
+    // ---------- Utilidades para la pantalla ----------
+
+    // Quita el mensaje de error de guardado cuando ya se mostró.
     fun descartarErrorGuardado() {
         modificarEdicion { it.copy(errorGuardado = null) }
+    }
+
+    // ---------- Fábrica ----------
+
+    companion object {
+        fun factory(
+            context: Context,
+            id: Int,
+            usuarioId: Int,
+            rol: String
+        ): ViewModelProvider.Factory =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    val dao = AppDatabase.getDatabase(context).solicitudDao()
+                    return DetalleSolicitudViewModel(
+                        SolicitudRepository(dao), id, usuarioId, rol
+                    ) as T
+                }
+            }
     }
 }

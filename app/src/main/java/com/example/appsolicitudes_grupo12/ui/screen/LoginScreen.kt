@@ -38,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -45,21 +46,27 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
-import com.example.appsolicitudes_grupo12.utils.adaptiveContentWidth
-import com.example.appsolicitudes_grupo12.viewModel.LoginViewModel
+import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.adaptive.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.ui.components.IconoError
+import com.example.appsolicitudes_grupo12.viewmodel.LoginViewModel
 
+// Pantalla de login. Muestra el estado del ViewModel y le envía los eventos.
+// onLoginExitoso entrega nombre, id y rol del usuario a la navegación.
 @Composable
 fun LoginScreen(
-    viewModel: LoginViewModel = viewModel(),
+    viewModel: LoginViewModel = viewModel(
+        factory = LoginViewModel.factory(LocalContext.current)
+    ),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onLoginExitoso: (String, Int, String) -> Unit = { _, _, _ -> }
 ) {
     val estado by viewModel.estado.collectAsState()
 
-    // Si la clave se ve o está oculta (sobrevive a giros de pantalla)
+    // Si la clave se ve u oculta (sobrevive a giros de pantalla)
     var claveVisible by rememberSaveable { mutableStateOf(false) }
 
+    // Cuando el ingreso sale bien, avisa a la navegación
     LaunchedEffect(estado.nombreAutenticado, estado.usuarioIdAutenticado, estado.rolAutenticado) {
         val nombre = estado.nombreAutenticado
         val usuarioId = estado.usuarioIdAutenticado
@@ -80,7 +87,7 @@ fun LoginScreen(
         ) {
             Column(
                 modifier = Modifier
-                    // Limita el ancho en ventanas grandes para mantener el formulario legible.
+                    // Limita el ancho en ventanas grandes
                     .adaptiveContentWidth(windowSizeClass, 520.dp, 620.dp, 680.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -141,8 +148,7 @@ fun LoginScreen(
                             onValueChange = viewModel::onContrasenaChange,
                             label = { Text("Clave") },
                             leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                            // Botón para mostrar u ocultar la clave. Material3 trae pocos íconos
-                            // en el paquete básico, por eso se usa un botón de texto.
+                            // Botón de texto para mostrar u ocultar la clave
                             trailingIcon = {
                                 TextButton(onClick = { claveVisible = !claveVisible }) {
                                     Text(if (claveVisible) "Ocultar" else "Mostrar")
@@ -168,7 +174,7 @@ fun LoginScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        // El error de credenciales aparece con animación en vez de saltar
+                        // El error de credenciales aparece con animación
                         AnimatedVisibility(visible = estado.errorLogin != null) {
                             Text(
                                 text = estado.errorLogin.orEmpty(),

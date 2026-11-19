@@ -44,65 +44,63 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.appsolicitudes_grupo12.model.QrUiState
-import com.example.appsolicitudes_grupo12.model.SolicitudQr
-import com.example.appsolicitudes_grupo12.utils.CameraPermissionHelper
-import com.example.appsolicitudes_grupo12.utils.QrScanner
-import com.example.appsolicitudes_grupo12.viewModel.QrViewModel
-import com.example.appsolicitudes_grupo12.utils.AppWindowSizeClass
-import com.example.appsolicitudes_grupo12.utils.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.model.qr.DatosQr
+import com.example.appsolicitudes_grupo12.state.QrUiState
+import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.ui.adaptive.adaptiveContentWidth
+import com.example.appsolicitudes_grupo12.ui.camera.CameraPermissionHelper
+import com.example.appsolicitudes_grupo12.ui.camera.QrScanner
+import com.example.appsolicitudes_grupo12.ui.components.EtiquetaEstado
+import com.example.appsolicitudes_grupo12.viewmodel.QrViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Pantalla del escáner QR. Pide el permiso de la cámara, muestra la cámara y,
-// cuando lee un QR de una solicitud, muestra los datos que traía el código.
-// Solo MUESTRA el estado que le entrega el ViewModel y ENVÍA eventos: no interpreta el QR por su cuenta.
-// onVolver: lo que pasa al pulsar la flecha de la barra superior.
-// onAbrirDetalle: lo que pasa al pulsar "Abrir detalle". Recibe el id de la solicitud
-// (la navegación lo usa para abrir DetalleSolicitudScreen).
+// Pantalla del escáner QR: pide el permiso de cámara, muestra la cámara y, al leer un QR
+// de solicitud, muestra los datos que traía. Solo muestra el estado del ViewModel y le envía eventos.
+// onVolver: flecha de la barra superior. onAbrirDetalle: recibe el id de la solicitud a abrir.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QrScannerScreen(
-    viewModel: QrViewModel = viewModel(),
+    usuarioId: Int,
+    rol: String,
+    viewModel: QrViewModel = viewModel(
+        factory = QrViewModel.factory(LocalContext.current, usuarioId, rol)
+    ),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onVolver: () -> Unit = {},
     onAbrirDetalle: (Int) -> Unit = {}
 ) {
-    // La pantalla observa el estado: cada cambio redibuja lo necesario
     val estado by viewModel.estado.collectAsState()
     val context = LocalContext.current
 
-    // Recuerda si la app ya tiene permiso de cámara. Parte con lo que diga el sistema.
+    // Si la app ya tiene permiso de cámara (parte con lo que diga el sistema)
     var tienePermiso by remember {
         mutableStateOf(CameraPermissionHelper.hasCameraPermission(context))
     }
 
-    // Lanzador que abre el cuadro "¿Permitir usar la cámara?" del sistema.
-    // Cuando la persona responde, se guarda el resultado en tienePermiso.
+    // Abre el cuadro "¿Permitir usar la cámara?" y guarda la respuesta
     val lanzadorPermiso = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { concedido ->
         tienePermiso = concedido
     }
 
-    // Al abrir la pantalla, si todavía no hay permiso, se pide automáticamente
+    // Al abrir la pantalla, si no hay permiso, se pide automáticamente
     LaunchedEffect(Unit) {
         if (!tienePermiso) lanzadorPermiso.launch(Manifest.permission.CAMERA)
     }
 
-    // Scaffold = estructura base: barra superior y contenido
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = { Text("Escanear solicitud") },
-                // Flecha de volver a la izquierda del título
                 navigationIcon = {
                     IconButton(onClick = onVolver) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Volver"   // descripción para lectores de pantalla
+                            contentDescription = "Volver"
                         )
                     }
                 }
@@ -116,42 +114,40 @@ fun QrScannerScreen(
                 .padding(paddingInterno),
             contentAlignment = Alignment.TopCenter
         ) {
+            // Centra y limita el área de cámara en ventanas grandes
             Box(
                 modifier = Modifier
                     .adaptiveContentWidth(windowSizeClass, 600.dp, 760.dp, 1000.dp)
                     .fillMaxSize()
             ) {
-            // Centra y limita el área de cámara en ventanas grandes.
-            if (!tienePermiso) {
-                // Sin permiso no se puede abrir la cámara
-                ContenidoSinPermiso(
-                    onPedirPermiso = { lanzadorPermiso.launch(Manifest.permission.CAMERA) }
-                )
-            } else {
-                // Según el estado del ViewModel, se dibuja una cosa u otra.
-                // Kotlin obliga a cubrir todos los casos.
-                when (val actual = estado) {
-                    is QrUiState.Escaneando -> ContenidoEscaneando(
-                        onQrDetectado = viewModel::onQrDetectado
+                if (!tienePermiso) {
+                    ContenidoSinPermiso(
+                        onPedirPermiso = { lanzadorPermiso.launch(Manifest.permission.CAMERA) }
                     )
-                    is QrUiState.Buscando -> ContenidoBuscando()
-                    is QrUiState.Leida -> ContenidoLeida(
-                        datos = actual.datos,
-                        idLocal = actual.idLocal,
-                        onAbrirDetalle = onAbrirDetalle,
-                        onEscanearOtro = viewModel::reiniciar
-                    )
-                    is QrUiState.NoValido -> ContenidoNoValido(
-                        onEscanearOtro = viewModel::reiniciar
-                    )
+                } else {
+                    // Se dibuja según el estado del ViewModel
+                    when (val actual = estado) {
+                        is QrUiState.Escaneando -> ContenidoEscaneando(
+                            onQrDetectado = viewModel::onQrDetectado
+                        )
+                        is QrUiState.Buscando -> ContenidoBuscando()
+                        is QrUiState.Leida -> ContenidoLeida(
+                            datos = actual.datos,
+                            idLocal = actual.idLocal,
+                            onAbrirDetalle = onAbrirDetalle,
+                            onEscanearOtro = viewModel::reiniciar
+                        )
+                        is QrUiState.NoValido -> ContenidoNoValido(
+                            onEscanearOtro = viewModel::reiniciar
+                        )
+                    }
                 }
-            }
             }
         }
     }
 }
 
-// ---------- Sin permiso: explica por qué se necesita y permite volver a pedirlo ----------
+// Sin permiso: explica por qué se necesita y permite volver a pedirlo.
 @Composable
 private fun ContenidoSinPermiso(onPedirPermiso: () -> Unit) {
     Column(
@@ -183,7 +179,7 @@ private fun ContenidoSinPermiso(onPedirPermiso: () -> Unit) {
     }
 }
 
-// ---------- Estado Escaneando: la cámara con un marco para apuntar al QR ----------
+// Escaneando: la cámara con un marco para apuntar al QR.
 @Composable
 private fun ContenidoEscaneando(onQrDetectado: (String) -> Unit) {
     Column(
@@ -192,20 +188,18 @@ private fun ContenidoEscaneando(onQrDetectado: (String) -> Unit) {
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // La cámara ocupa todo el espacio disponible, con las esquinas redondeadas
         Box(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
         ) {
-            // QrScanner abre la cámara y avisa cuando detecta un código
             QrScanner(
                 onQrCodeScanned = onQrDetectado,
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Marco que ayuda a apuntar. Es solo una guía visual: se lee el QR en cualquier parte.
+            // Marco solo como guía visual: el QR se lee en cualquier parte de la imagen
             Surface(
                 modifier = Modifier
                     .size(250.dp)
@@ -225,7 +219,7 @@ private fun ContenidoEscaneando(onQrDetectado: (String) -> Unit) {
     }
 }
 
-// ---------- Estado Buscando: se revisa si la solicitud existe en este teléfono ----------
+// Buscando: se revisa si la solicitud existe en este teléfono.
 @Composable
 private fun ContenidoBuscando() {
     Box(
@@ -236,15 +230,14 @@ private fun ContenidoBuscando() {
     }
 }
 
-// ---------- Estado Leida: los datos que venían dentro del QR ----------
+// Leída: los datos que venían dentro del QR.
 @Composable
 private fun ContenidoLeida(
-    datos: SolicitudQr,
+    datos: DatosQr,
     idLocal: Int?,
     onAbrirDetalle: (Int) -> Unit,
     onEscanearOtro: () -> Unit
 ) {
-    // Column con scroll: si la descripción es larga, se puede deslizar
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -262,7 +255,7 @@ private fun ContenidoLeida(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Fila superior: código a la izquierda, etiqueta de estado a la derecha
+                // Código a la izquierda, estado a la derecha
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -273,7 +266,6 @@ private fun ContenidoLeida(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    // EtiquetaEstado está en ListaSolicitudesScreen.kt
                     EtiquetaEstado(datos.estado)
                 }
 
@@ -296,7 +288,7 @@ private fun ContenidoLeida(
         }
 
         if (idLocal != null) {
-            // La solicitud también está guardada en este teléfono: se puede abrir su detalle
+            // La solicitud también está en este teléfono: se puede abrir su detalle
             Button(
                 onClick = { onAbrirDetalle(idLocal) },
                 modifier = Modifier.fillMaxWidth()
@@ -322,7 +314,7 @@ private fun ContenidoLeida(
     }
 }
 
-// ---------- Estado NoValido: el QR no es de una solicitud de esta app ----------
+// No válido: el QR no es de una solicitud de esta app.
 @Composable
 private fun ContenidoNoValido(onEscanearOtro: () -> Unit) {
     Column(
@@ -372,7 +364,7 @@ private fun CampoQr(etiqueta: String, valor: String) {
     }
 }
 
-// Convierte los milisegundos del QR a un texto legible, por ejemplo "17/10/2026 14:35".
+// Convierte los milisegundos a texto legible, por ejemplo "17/10/2026 14:35".
 private fun fechaLegible(milisegundos: Long): String {
     val formato = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
     return formato.format(Date(milisegundos))

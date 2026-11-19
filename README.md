@@ -131,10 +131,10 @@ Las tres cuentas ficticias se crean automáticamente en Room la primera vez que 
 - Íconos en los campos del formulario y del login.
 
 ### Diseño adaptable (Window Size Classes)
-- La clase de ancho se obtiene con `currentWindowAdaptiveInfoV2()` en `utils/WindowSizeUtils.kt`, que la traduce a un enum propio `AppWindowSizeClass` (Compact, Medium, Expanded). Se calcula una vez en `AppNavigation` y se entrega a las pantallas.
+- La clase de ancho se obtiene con `currentWindowAdaptiveInfoV2()` en `ui/adaptive/WindowSizeUtils.kt`, que la traduce a un enum propio `AppWindowSizeClass` (Compact, Medium, Expanded). Se calcula una vez en `AppNavigation` y se entrega a las pantallas.
 - Compacta (< 600 dp): menú lateral modal y lista de una columna.
 - Mediana (600–839 dp) y expandida (≥ 840 dp): menú lateral permanente y cuadrículas adaptativas para solicitudes (tarjetas de al menos 320 dp) y asignaciones (340 dp).
-- Login, formulario, detalle, escáner y menú limitan su ancho máximo en ventanas amplias con `Modifier.adaptiveContentWidth` (`utils/AdaptiveContent.kt`).
+- Login, formulario, detalle, escáner y menú limitan su ancho máximo en ventanas amplias con `Modifier.adaptiveContentWidth` (`ui/adaptive/AdaptiveContent.kt`).
 - Se actualiza al rotar, redimensionar o usar pantalla dividida.
 
 ## Navegación
@@ -146,7 +146,7 @@ El recorrido principal es **Login → Menú → Lista → Formulario**, y desde 
 | `login` | LoginScreen | Pantalla inicial. |
 | `menu/{nombre}/{usuarioId}/{rol}` | MenuScreen | Tras ingresar con credenciales correctas. |
 | `lista/{usuarioId}/{rol}` | ListaSolicitudesScreen | Desde el menú o al guardar una solicitud. |
-| `formulario/{usuarioId}/{rol}` | SolicitudFormScreen | Botón + de la lista o menú (solo cliente). |
+| `formulario/{usuarioId}/{rol}` | FormularioScreen | Botón + de la lista o menú (solo cliente). |
 | `detalle/{id}/{usuarioId}/{rol}` | DetalleSolicitudScreen | Al tocar una tarjeta o desde el escáner QR. |
 | `qr/{usuarioId}/{rol}` | QrScannerScreen | Botón "Escanear QR" de la lista. |
 | `asignaciones/{usuarioId}/{rol}` | AsignarSolicitudesScreen | Opción del menú (solo administrador). |
@@ -177,67 +177,80 @@ Base `solicitudes_database`, **versión 3**, con las tablas `solicitudes` y `usu
 ```
 app/src/main/java/com/example/appsolicitudes_grupo12/
 ├── data/
+│   ├── files/
+│   │   └── EvidenciaArchivos.kt
 │   ├── local/
 │   │   ├── AppDatabase.kt
 │   │   ├── SolicitudDao.kt
 │   │   ├── SolicitudEntity.kt
 │   │   ├── UsuarioDao.kt
 │   │   └── UsuarioEntity.kt
+│   ├── qr/
+│   │   └── CodigoQr.kt
 │   └── repository/
 │       ├── AuthRepository.kt
-│       └── SolicitudRepository.kt
+│       ├── SolicitudRepository.kt
+│       └── UsuarioRepository.kt
 ├── model/
+│   ├── AsignarSolicitudesUiState.kt
+│   ├── CategoriasSolicitud.kt
+│   ├── DatosQr.kt
 │   ├── DetalleSolicitudUiState.kt
+│   ├── EdicionSolicitud.kt
 │   ├── FiltroSolicitudes.kt
+│   ├── FormularioErrores.kt
+│   ├── FormularioUiState.kt
 │   ├── ListaSolicitudesUiState.kt
 │   ├── LoginUiState.kt
 │   ├── QrUiState.kt
-│   ├── SolicitudErrores.kt
-│   ├── SolicitudQr.kt
-│   └── SolicitudUiState.kt
+│   └── ValidadorSolicitud.kt
 ├── navigation/
 │   └── AppNavigation.kt
 ├── ui/
+│   ├── adaptive/
+│   │   ├── AdaptiveContent.kt
+│   │   └── WindowSizeUtils.kt
+│   ├── components/
+│   │   ├── EtiquetaEstado.kt
+│   │   ├── IconoError.kt
+│   │   ├── ImagenQrSolicitud.kt
+│   │   └── QrScanner.kt
+│   ├── permissions/
+│   │   └── CameraPermissionHelper.kt
 │   ├── screen/
 │   │   ├── AsignarSolicitudesScreen.kt
 │   │   ├── DetalleSolicitudScreen.kt
-│   │   ├── IconoError.kt
-│   │   ├── ImagenQrSolicitud.kt
+│   │   ├── FormularioScreen.kt
 │   │   ├── ListaSolicitudesScreen.kt
 │   │   ├── LoginScreen.kt
 │   │   ├── MenuScreen.kt
-│   │   ├── QrScannerScreen.kt
-│   │   └── SolicitudFormScreen.kt
+│   │   └── QrScannerScreen.kt
 │   └── theme/
 │       ├── Color.kt
 │       ├── Theme.kt
 │       └── Type.kt
-├── utils/
-│   ├── AdaptiveContent.kt
-│   ├── CameraPermissionHelper.kt
-│   ├── EvidenciaUtils.kt
-│   ├── QrScanner.kt
-│   ├── QrUtils.kt
-│   └── WindowSizeUtils.kt
-├── viewModel/
+├── viewmodel/
 │   ├── AsignarSolicitudesViewModel.kt
 │   ├── DetalleSolicitudViewModel.kt
+│   ├── FormularioViewModel.kt
 │   ├── ListaSolicitudesViewModel.kt
 │   ├── LoginViewModel.kt
-│   ├── QrViewModel.kt
-│   └── SolicitudViewModel.kt
+│   └── QrViewModel.kt
 └── MainActivity.kt
 app/src/main/res/xml/   file_paths.xml (carpeta que comparte el FileProvider)
 ```
+
 > **Nota sobre `model/`:** por la estructura base aprobada por el docente, esta carpeta se mantiene con ese nombre, pero contiene los **estados de interfaz (UiState)** y no el Model de datos. Estas clases pertenecen a la capa de presentación, junto al ViewModel que las produce. El Model de datos de la arquitectura MVVM corresponde a la carpeta `data/`.
 
-> **Nota sobre `utils/`:** esta carpeta se agregó **fuera de la estructura base aprobada por el docente** (`data`, `model`, `navigation`, `ui`, `viewModel`) para agrupar funciones de apoyo que no son pantallas ni ViewModels:
-> - `QrScanner.kt`: abre la cámara con CameraX y lee el QR con ML Kit.
-> - `QrUtils.kt`: arma y lee el texto JSON del QR y lo dibuja como imagen (ZXing).
-> - `EvidenciaUtils.kt`: guarda, copia y borra las fotos de evidencia; crea la URI del `FileProvider`.
-> - `CameraPermissionHelper.kt`: revisa si hay permiso de cámara.
-> - `WindowSizeUtils.kt`: detecta la clase de tamaño de ventana (`AppWindowSizeClass`).
-> - `AdaptiveContent.kt`: modificador que limita el ancho del contenido según la clase de ventana.
+> **Reorganización (tercera evaluación):** la antigua carpeta `utils/` se eliminó y sus archivos se repartieron por responsabilidad. La carpeta `viewModel` pasó a `viewmodel` (paquetes en minúscula).
+> - `data/files/EvidenciaArchivos.kt` (antes `EvidenciaUtils`): guarda, copia y borra las fotos de evidencia; crea la URI del `FileProvider`.
+> - `data/qr/CodigoQr.kt` (antes `QrUtils`): arma y lee el texto JSON del QR y lo dibuja como imagen (ZXing).
+> - `ui/components/`: composables reutilizables (`QrScanner`, `EtiquetaEstado`, `IconoError`, `ImagenQrSolicitud`).
+> - `ui/adaptive/`: tamaño de ventana (`AppWindowSizeClass`) y modificador que limita el ancho del contenido.
+> - `ui/permissions/CameraPermissionHelper.kt`: revisa si hay permiso de cámara.
+> - Renombres: `SolicitudViewModel`, `SolicitudUiState`, `SolicitudErrores` y `SolicitudFormScreen` pasaron a `Formulario...`; `SolicitudQr` pasó a `DatosQr`.
+> - `model/CategoriasSolicitud.kt` y `model/ValidadorSolicitud.kt`: categorías y reglas de validación compartidas por el formulario y la edición.
+> - `data/repository/UsuarioRepository.kt`: consulta de técnicos, para que el ViewModel de asignaciones no use el DAO directo.
 
 ## Requisitos para ejecutar
 
