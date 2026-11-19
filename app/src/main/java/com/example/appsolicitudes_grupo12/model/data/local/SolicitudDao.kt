@@ -49,12 +49,4 @@ interface SolicitudDao {
     // Guarda los cambios de una solicitud existente. Devuelve las filas cambiadas (0 = no existía).
     @Update
     suspend fun actualizar(solicitud: SolicitudEntity): Int
-
-    // Asigna la solicitud a un técnico y la pasa a "Asignada". Devuelve las filas cambiadas.
-    @Query(
-        "UPDATE solicitudes SET asignadoAUsuarioId = :tecnicoId, estado = 'Asignada' " +
-                "WHERE id = :solicitudId AND EXISTS " +
-                "(SELECT 1 FROM usuarios WHERE id = :tecnicoId AND rol = 'tecnico')"
-    )
-    suspend fun asignarTecnico(solicitudId: Int, tecnicoId: Int): Int
 }

@@ -115,8 +115,8 @@ class ListaSolicitudesViewModel(
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    val dao = AppDatabase.getDatabase(context).solicitudDao()
-                    return ListaSolicitudesViewModel(SolicitudRepository(dao), usuarioId, rol) as T
+                    val baseDatos = AppDatabase.getDatabase(context)
+                    return ListaSolicitudesViewModel(SolicitudRepository(baseDatos), usuarioId, rol) as T
                 }
             }
     }

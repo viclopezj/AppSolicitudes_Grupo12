@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 class AsignarSolicitudesViewModel(
     private val repositorio: SolicitudRepository,
     private val repositorioUsuarios: UsuarioRepository,
+    private val usuarioId: Int,
     private val rol: String
 ) : ViewModel() {
 
@@ -74,7 +75,7 @@ class AsignarSolicitudesViewModel(
         }
 
         viewModelScope.launch {
-            repositorio.asignarTecnico(solicitudId, tecnicoId)
+            repositorio.asignarTecnico(solicitudId, tecnicoId, usuarioId, rol)
                 .onSuccess {
                     _estado.update {
                         it.copy(
@@ -105,14 +106,15 @@ class AsignarSolicitudesViewModel(
     // ---------- Fábrica ----------
 
     companion object {
-        fun factory(context: Context, rol: String): ViewModelProvider.Factory =
+        fun factory(context: Context, usuarioId: Int, rol: String): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     val baseDatos = AppDatabase.getDatabase(context)
                     return AsignarSolicitudesViewModel(
-                        SolicitudRepository(baseDatos.solicitudDao()),
+                        SolicitudRepository(baseDatos),
                         UsuarioRepository(baseDatos.usuarioDao()),
+                        usuarioId,
                         rol
                     ) as T
                 }

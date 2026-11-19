@@ -58,10 +58,11 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AsignarSolicitudesScreen(
+    usuarioId: Int,
     rol: String,
     puedeAdministrar: Boolean,
     viewModel: AsignarSolicitudesViewModel = viewModel(
-        factory = AsignarSolicitudesViewModel.factory(LocalContext.current, rol)
+        factory = AsignarSolicitudesViewModel.factory(LocalContext.current, usuarioId, rol)
     ),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onVolver: () -> Unit

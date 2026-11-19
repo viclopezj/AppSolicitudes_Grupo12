@@ -242,9 +242,9 @@ class FormularioViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     // applicationContext evita retener la pantalla en memoria
                     val appContext = context.applicationContext
-                    val dao = AppDatabase.getDatabase(appContext).solicitudDao()
+                    val baseDatos = AppDatabase.getDatabase(appContext)
                     return FormularioViewModel(
-                        SolicitudRepository(dao), appContext, usuarioId, rol
+                        SolicitudRepository(baseDatos), appContext, usuarioId, rol
                     ) as T
                 }
             }

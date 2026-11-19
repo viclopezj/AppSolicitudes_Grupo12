@@ -192,9 +192,11 @@ fun AppNavigation() {
                 navArgument("rol") { type = NavType.StringType }
             )
         ) { entrada ->
+            val usuarioId = entrada.arguments?.getInt("usuarioId") ?: -1
             val rol = entrada.arguments?.getString("rol").orEmpty()
 
             AsignarSolicitudesScreen(
+                usuarioId = usuarioId,
                 rol = rol,
                 puedeAdministrar = rol == "administrador",
                 windowSizeClass = windowSizeClass,

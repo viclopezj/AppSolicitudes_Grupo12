@@ -16,6 +16,10 @@ interface UsuarioDao {
     @Query("SELECT * FROM usuarios WHERE nombreUsuario = :nombreUsuario LIMIT 1")
     suspend fun buscarPorNombre(nombreUsuario: String): UsuarioEntity?
 
+    // Busca por id. null si no existe.
+    @Query("SELECT * FROM usuarios WHERE id = :id LIMIT 1")
+    suspend fun buscarPorId(id: Int): UsuarioEntity?
+
     // Técnicos disponibles para asignar solicitudes.
     @Query("SELECT * FROM usuarios WHERE rol = 'tecnico' ORDER BY nombre")
     suspend fun obtenerTecnicos(): List<UsuarioEntity>
