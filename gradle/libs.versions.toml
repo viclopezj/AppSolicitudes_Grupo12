@@ -35,12 +35,23 @@ coil = "3.3.0"
 # Retrofit: cliente HTTP para consumir la API REST del catálogo de servicios.
 # Trae OkHttp (la parte que hace la conexión) incluido, por eso no se declara aparte.
 retrofit = "3.0.0"
+# Pruebas unitarias (solo de test, no entran a la app)
+kotest = "6.2.2"
+mockk = "1.14.12"
+coroutinesTest = "1.10.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+# Kotest: el motor que ejecuta las pruebas (sobre JUnit Platform) y sus comprobaciones (shouldBe)
+kotest-runner-junit5 = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
+kotest-assertions-core = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
+# MockK: crea objetos simulados (por ejemplo un ApiService falso)
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+# runTest: permite probar funciones suspend
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }

@@ -36,6 +36,12 @@ android {
     buildFeatures {
         compose = true
     }
+    testOptions {
+        unitTests {
+            // Kotest se ejecuta sobre JUnit Platform
+            all { it.useJUnitPlatform() }
+        }
+    }
 }
 
 dependencies {
@@ -81,7 +87,11 @@ dependencies {
     implementation(libs.retrofit)                  // Retrofit: llamadas HTTP a la API
     implementation(libs.retrofit.converter.gson)   // Gson: JSON de la API -> objetos Kotlin
 
-    testImplementation(libs.junit)
+    // --- Pruebas unitarias (src/test) ---
+    testImplementation(libs.kotest.runner.junit5)      // Kotest: ejecuta las pruebas
+    testImplementation(libs.kotest.assertions.core)    // Comprobaciones: shouldBe, etc.
+    testImplementation(libs.mockk)                     // Objetos simulados
+    testImplementation(libs.kotlinx.coroutines.test)   // runTest para funciones suspend
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
