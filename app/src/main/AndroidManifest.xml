@@ -11,6 +11,9 @@
     <!-- La cámara no es obligatoria: la app puede instalarse en equipos sin ella -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
+    <!-- Permiso para mostrar los avisos locales (Android 13 o superior lo pide en pantalla) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"

@@ -15,6 +15,10 @@ import com.example.appsolicitudes_grupo12.model.solicitud.ReglasTransicion
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
+import com.example.appsolicitudes_grupo12.model.aviso.AvisoSolicitud
+import com.example.appsolicitudes_grupo12.model.aviso.Avisos
+import com.example.appsolicitudes_grupo12.model.aviso.Notificador
+import com.example.appsolicitudes_grupo12.model.aviso.NotificadorNulo
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
 
@@ -34,7 +38,8 @@ class SolicitudRepository(
     private val dao: SolicitudDao = db.solicitudDao(),
     private val historialDao: HistorialSolicitudDao = db.historialSolicitudDao(),
     private val comentarioDao: ComentarioSolicitudDao = db.comentarioSolicitudDao(),
-    private val usuarioDao: UsuarioDao = db.usuarioDao()
+    private val usuarioDao: UsuarioDao = db.usuarioDao(),
+    private val notificador: Notificador = NotificadorNulo
 ) {
 
     // ---------- Lecturas ----------
@@ -146,7 +151,7 @@ class SolicitudRepository(
                 fecha = ahora
             )
             solicitud.copy(id = idNuevo)
-        }
+        }.avisar { Avisos.nuevaSolicitud(it.codigo) }
     }
 
     // Cambia título, descripción, categoría y servicio. Código, fecha, estado y foto se conservan.
@@ -198,7 +203,7 @@ class SolicitudRepository(
         usuarioId: Int,
         rol: String
     ): Result<Unit> {
-        return enTransaccion<Unit> {
+        return enTransaccion<AvisoSolicitud?> {
             if (rol != ROL_ADMINISTRADOR) throw TransicionNoPermitidaException()
 
             val solicitud = dao.obtenerPorId(solicitudId, usuarioId, rol)
@@ -216,6 +221,9 @@ class SolicitudRepository(
             if (!esAsignacionInicial && !ReglasTransicion.puedeReasignar(rol, estadoActual)) {
                 throw TransicionNoPermitidaException()
             }
+
+            // Aviso para el técnico (solo si algo cambió)
+            var aviso: AvisoSolicitud? = null
 
             // Si elige el mismo técnico en una reasignación, no hay nada que guardar
             if (esAsignacionInicial || solicitud.asignadoAUsuarioId != tecnicoId) {
@@ -239,8 +247,10 @@ class SolicitudRepository(
                     rol = rol,
                     fecha = ahora
                 )
+                aviso = Avisos.asignada(solicitud.codigo)
             }
-        }
+            aviso
+        }.avisar { it }.map { }
     }
 
     // Cambia el estado si el perfil puede hacerlo (ReglasTransicion).
@@ -254,7 +264,7 @@ class SolicitudRepository(
         comentario: String? = null,
         evidenciaUri: String? = null
     ): Result<Unit> {
-        return enTransaccion<Unit> {
+        return enTransaccion<AvisoSolicitud?> {
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
                 ?: throw SolicitudNoEncontradaException()
             val estadoActual = EstadoSolicitud.desdeTexto(solicitud.estado)
@@ -304,7 +314,10 @@ class SolicitudRepository(
                     )
                 )
             }
-        }
+
+            // Aviso que corresponde a este cambio (null si ese cambio no avisa)
+            Avisos.porCambioDeEstado(solicitud.codigo, estadoActual, nuevoEstado)
+        }.avisar { it }.map { }
     }
 
     // Cambia la prioridad. Solo el administrador.
@@ -314,7 +327,7 @@ class SolicitudRepository(
         rol: String,
         nuevaPrioridad: PrioridadSolicitud
     ): Result<Unit> {
-        return enTransaccion<Unit> {
+        return enTransaccion<AvisoSolicitud?> {
             if (!ReglasTransicion.puedeCambiarPrioridad(rol)) throw TransicionNoPermitidaException()
 
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
@@ -326,6 +339,9 @@ class SolicitudRepository(
             }
 
             val anterior = PrioridadSolicitud.desdeTexto(solicitud.prioridad)
+
+            // Aviso para el cliente (solo si la prioridad cambió)
+            var aviso: AvisoSolicitud? = null
 
             if (anterior != nuevaPrioridad) {
                 val ahora = System.currentTimeMillis()
@@ -342,8 +358,10 @@ class SolicitudRepository(
                     rol = rol,
                     fecha = ahora
                 )
+                aviso = Avisos.prioridad(solicitud.codigo, nuevaPrioridad)
             }
-        }
+            aviso
+        }.avisar { it }.map { }
     }
 
     // El cliente responde la información pedida: su respuesta queda como comentario visible
@@ -404,7 +422,7 @@ class SolicitudRepository(
         esInterno: Boolean = false,
         evidenciaUri: String? = null
     ): Result<Unit> {
-        return enTransaccion<Unit> {
+        return enTransaccion<AvisoSolicitud?> {
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
                 ?: throw SolicitudNoEncontradaException()
 
@@ -437,10 +455,19 @@ class SolicitudRepository(
             if (!interno) {
                 dao.actualizar(solicitud.copy(ultimaActualizacion = ahora))
             }
-        }
+
+            // Solo el comentario visible del técnico avisa al cliente
+            if (!interno && rol == ROL_TECNICO) Avisos.nuevoComentario(solicitud.codigo) else null
+        }.avisar { it }.map { }
     }
 
     // ---------- Utilidades ----------
+
+    // Publica el aviso solo si el cambio se guardó bien. Devuelve el mismo resultado.
+    private fun <T> Result<T>.avisar(aviso: (T) -> AvisoSolicitud?): Result<T> {
+        onSuccess { valor -> aviso(valor)?.let(notificador::publicar) }
+        return this
+    }
 
     // Ejecuta el bloque en una transacción: si algo falla, no se guarda nada.
     private suspend fun <T> enTransaccion(bloque: suspend () -> T): Result<T> {

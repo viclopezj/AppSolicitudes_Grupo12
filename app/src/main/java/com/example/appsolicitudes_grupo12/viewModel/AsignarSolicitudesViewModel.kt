@@ -9,6 +9,7 @@ import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
 import com.example.appsolicitudes_grupo12.model.data.repository.UsuarioRepository
 import com.example.appsolicitudes_grupo12.state.AsignarSolicitudesUiState
+import com.example.appsolicitudes_grupo12.model.aviso.NotificadorAndroid
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -112,7 +113,7 @@ class AsignarSolicitudesViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     val baseDatos = AppDatabase.getDatabase(context)
                     return AsignarSolicitudesViewModel(
-                        SolicitudRepository(baseDatos),
+                        SolicitudRepository(baseDatos, notificador = NotificadorAndroid(context)),
                         UsuarioRepository(baseDatos.usuarioDao()),
                         usuarioId,
                         rol

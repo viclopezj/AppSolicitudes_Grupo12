@@ -12,6 +12,7 @@ import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudReposit
 import com.example.appsolicitudes_grupo12.model.solicitud.ValidadorSolicitud
 import com.example.appsolicitudes_grupo12.state.FormularioErrores
 import com.example.appsolicitudes_grupo12.state.FormularioUiState
+import com.example.appsolicitudes_grupo12.model.aviso.NotificadorAndroid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -244,7 +245,8 @@ class FormularioViewModel(
                     val appContext = context.applicationContext
                     val baseDatos = AppDatabase.getDatabase(appContext)
                     return FormularioViewModel(
-                        SolicitudRepository(baseDatos), appContext, usuarioId, rol
+                        SolicitudRepository(baseDatos, notificador = NotificadorAndroid(appContext)),
+                        appContext, usuarioId, rol
                     ) as T
                 }
             }

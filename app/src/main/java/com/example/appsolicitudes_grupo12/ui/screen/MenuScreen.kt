@@ -40,6 +40,18 @@ import androidx.compose.ui.unit.dp
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.Info
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 
 // Pantalla de inicio tras el login, con menú lateral y accesos rápidos según el perfil.
 // Solo muestra opciones y avisa qué se pulsó: la navegación le entrega las funciones.
@@ -62,6 +74,27 @@ fun MenuScreen(
     // Abrir y cerrar el menú es una animación: se hace dentro de una corrutina
     val alcance = rememberCoroutineScope()
     val esCompacto = windowSizeClass == AppWindowSizeClass.Compact
+
+    // Permiso para mostrar avisos (Android 13 o superior). Se pide una sola vez al entrar.
+    // Si la persona lo rechaza, no se muestran avisos y la app sigue normal.
+    val contexto = LocalContext.current
+    var permisoAvisosPedido by rememberSaveable { mutableStateOf(false) }
+    val lanzadorAvisos = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    LaunchedEffect(Unit) {
+        val necesitaPermiso = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    contexto,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+
+        if (necesitaPermiso && !permisoAvisosPedido) {
+            permisoAvisosPedido = true
+            lanzadorAvisos.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     // Contenido del menú, compartido entre la versión modal y la permanente
     val drawerItems: @Composable () -> Unit = {

@@ -12,6 +12,7 @@ import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudNoEncon
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
 import com.example.appsolicitudes_grupo12.model.data.repository.TransicionNoPermitidaException
 import com.example.appsolicitudes_grupo12.state.AvanceUiState
+import com.example.appsolicitudes_grupo12.model.aviso.NotificadorAndroid
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -173,7 +174,7 @@ class AvanceSolicitudViewModel(
                     val appContext = context.applicationContext
                     val baseDatos = AppDatabase.getDatabase(appContext)
                     return AvanceSolicitudViewModel(
-                        SolicitudRepository(baseDatos),
+                        SolicitudRepository(baseDatos, notificador = NotificadorAndroid(appContext)),
                         appContext,
                         id, usuarioId, rol
                     ) as T

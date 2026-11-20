@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.update
 import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.model.data.repository.UsuarioRepository
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
+import com.example.appsolicitudes_grupo12.model.aviso.NotificadorAndroid
 
 // ViewModel del detalle: lee UNA solicitud, pasa de lectura a edición, valida y guarda cambios.
 class DetalleSolicitudViewModel(
@@ -341,7 +342,7 @@ class DetalleSolicitudViewModel(
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     val baseDatos = AppDatabase.getDatabase(context)
                     return DetalleSolicitudViewModel(
-                        SolicitudRepository(baseDatos),
+                        SolicitudRepository(baseDatos, notificador = NotificadorAndroid(context)),
                         UsuarioRepository(baseDatos.usuarioDao()),
                         id, usuarioId, rol
                     ) as T
