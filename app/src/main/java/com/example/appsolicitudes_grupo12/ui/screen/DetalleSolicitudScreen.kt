@@ -75,6 +75,8 @@ import com.example.appsolicitudes_grupo12.ui.components.AccionesSolicitud
 import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 import com.example.appsolicitudes_grupo12.ui.components.GestionSolicitud
+import com.example.appsolicitudes_grupo12.model.solicitud.ReglasTransicion
+import com.example.appsolicitudes_grupo12.ui.components.AvanceSolicitud
 
 // Detalle de una solicitud, con dos modos:
 //   - Lectura: datos guardados, foto de evidencia, código QR y botón "Editar solicitud".
@@ -180,6 +182,8 @@ fun DetalleSolicitudScreen(
                                 comentarios = comentarios,
                                 tecnicos = tecnicos,
                                 procesando = acciones.procesando,
+                                usuarioId = usuarioId,
+                                onAvanceEnviado = viewModel::refrescarSolicitud,
                                 onEditar = viewModel::iniciarEdicion,
                                 onCambiarEstado = viewModel::cambiarEstado,
                                 onCambiarPrioridad = viewModel::cambiarPrioridad,
@@ -279,6 +283,8 @@ private fun DetalleLectura(
     comentarios: List<ComentarioSolicitudEntity>,
     tecnicos: List<UsuarioEntity>,
     procesando: Boolean,
+    usuarioId: Int,
+    onAvanceEnviado: () -> Unit,
     onEditar: () -> Unit,
     onCambiarEstado: (EstadoSolicitud, String?) -> Unit,
     onCambiarPrioridad: (PrioridadSolicitud) -> Unit,
@@ -346,26 +352,43 @@ private fun DetalleLectura(
             ) {
                 Text("Editar solicitud")
             }
-            // Por ahora solo el administrador (técnico y cliente llegan después)
-            if (rol == "administrador") {
-                GestionSolicitud(
-                    solicitud = solicitud,
-                    rol = rol,
-                    tecnicos = tecnicos,
-                    procesando = procesando,
-                    onCambiarPrioridad = onCambiarPrioridad,
-                    onAsignarTecnico = onAsignarTecnico
-                )
-                AccionesSolicitud(
-                    rol = rol,
-                    estadoActual = solicitud.estado,
-                    procesando = procesando,
-                    onCambiarEstado = onCambiarEstado
-                )
-            }
-            ComentariosSolicitud(comentarios = comentarios)
-            HistorialSolicitud(historial = historial)
         }
+
+        // Prioridad y asignación de técnico: solo el administrador
+        if (rol == "administrador") {
+            GestionSolicitud(
+                solicitud = solicitud,
+                rol = rol,
+                tecnicos = tecnicos,
+                procesando = procesando,
+                onCambiarPrioridad = onCambiarPrioridad,
+                onAsignarTecnico = onAsignarTecnico
+            )
+        }
+
+        // Cambios de estado: cada perfil ve solo los que le corresponden (si no hay, no se muestra)
+        AccionesSolicitud(
+            rol = rol,
+            estadoActual = solicitud.estado,
+            procesando = procesando,
+            onCambiarEstado = onCambiarEstado
+        )
+
+        // Avances con evidencia: solo el técnico, mientras trabaja la solicitud
+        val estadoActual = EstadoSolicitud.desdeTexto(solicitud.estado)
+        if (estadoActual != null && ReglasTransicion.puedeRegistrarAvance(rol, estadoActual)) {
+            AvanceSolicitud(
+                id = solicitud.id,
+                usuarioId = usuarioId,
+                rol = rol,
+                onEnviado = onAvanceEnviado
+            )
+        }
+
+        // Comentarios e historial: todos los perfiles (el cliente no recibe los internos)
+        ComentariosSolicitud(comentarios = comentarios)
+        HistorialSolicitud(historial = historial)
+
     }
 }
 

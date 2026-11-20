@@ -37,11 +37,55 @@ fun AccionesSolicitud(
 
     val estado = EstadoSolicitud.desdeTexto(estadoActual)
     // Asignar un técnico tiene su propio selector, por eso se excluye aquí
-    val destinos = if (estado == null) {
+    val permitidos = if (estado == null) {
         emptyList()
     } else {
         ReglasTransicion.destinosPermitidos(rol, estado)
             .filter { it != EstadoSolicitud.ASIGNADA }
+    }
+    // El cliente responde con un solo botón: el destino lo decide el repositorio
+    val destinos = if (rol == "cliente" && estado == EstadoSolicitud.PENDIENTE_INFORMACION) {
+        permitidos.take(1)
+    } else {
+        permitidos
+    }
+
+    // Texto del botón y del diálogo según el perfil y el estado
+    fun etiquetaAccion(destino: EstadoSolicitud): String {
+        if (rol == "cliente") {
+            if (estado == EstadoSolicitud.PENDIENTE_INFORMACION) {
+                return "Responder solicitud de información"
+            }
+            if (estado == EstadoSolicitud.RESUELTA && destino == EstadoSolicitud.CERRADA) {
+                return "Confirmar resolución"
+            }
+            if (estado == EstadoSolicitud.RESUELTA && destino == EstadoSolicitud.EN_REVISION) {
+                return "Pedir reapertura"
+            }
+        }
+        return when (destino) {
+            EstadoSolicitud.EN_REVISION -> "Pasar a revisión"
+            EstadoSolicitud.PENDIENTE_INFORMACION -> "Solicitar información"
+            EstadoSolicitud.CANCELADA -> "Cancelar solicitud"
+            EstadoSolicitud.CERRADA -> "Cerrar solicitud"
+            EstadoSolicitud.EN_PROCESO -> "Iniciar trabajo"
+            EstadoSolicitud.RESUELTA -> "Registrar resolución"
+            else -> destino.texto
+        }
+    }
+
+    // Pista del campo de texto del diálogo
+    fun etiquetaMensaje(destino: EstadoSolicitud): String {
+        if (rol == "cliente") {
+            if (estado == EstadoSolicitud.PENDIENTE_INFORMACION) return "Escribe tu respuesta"
+            if (destino == EstadoSolicitud.EN_REVISION) return "Motivo de la reapertura"
+        }
+        return when (destino) {
+            EstadoSolicitud.CANCELADA -> "Motivo de la cancelación"
+            EstadoSolicitud.PENDIENTE_INFORMACION -> "¿Qué información necesitas del cliente?"
+            EstadoSolicitud.RESUELTA -> "Describe la resolución"
+            else -> "Mensaje"
+        }
     }
 
     if (destinos.isNotEmpty()) {
@@ -53,7 +97,7 @@ fun AccionesSolicitud(
 
             destinos.forEach { destino ->
                 val alPulsar = {
-                    if (ReglasTransicion.requiereMotivo(destino)) {
+                    if (estado != null && ReglasTransicion.requiereMotivo(estado, destino)) {
                         destinoConMensaje = destino
                     } else {
                         onCambiarEstado(destino, null)
@@ -137,23 +181,4 @@ private fun DialogoMensaje(
             TextButton(onClick = onCancelar) { Text("Volver") }
         }
     )
-}
-
-// Texto del botón según el estado al que lleva.
-private fun etiquetaAccion(destino: EstadoSolicitud): String = when (destino) {
-    EstadoSolicitud.EN_REVISION -> "Pasar a revisión"
-    EstadoSolicitud.PENDIENTE_INFORMACION -> "Solicitar información"
-    EstadoSolicitud.CANCELADA -> "Cancelar solicitud"
-    EstadoSolicitud.CERRADA -> "Cerrar solicitud"
-    EstadoSolicitud.EN_PROCESO -> "Iniciar trabajo"
-    EstadoSolicitud.RESUELTA -> "Registrar resolución"
-    else -> destino.texto
-}
-
-// Pista del campo de texto del diálogo.
-private fun etiquetaMensaje(destino: EstadoSolicitud): String = when (destino) {
-    EstadoSolicitud.CANCELADA -> "Motivo de la cancelación"
-    EstadoSolicitud.PENDIENTE_INFORMACION -> "¿Qué información necesitas del cliente?"
-    EstadoSolicitud.RESUELTA -> "Describe la resolución"
-    else -> "Mensaje"
 }

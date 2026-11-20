@@ -249,10 +249,26 @@ class DetalleSolicitudViewModel(
             .onFailure { error -> mostrarErrorDeLectura(error) }
     }
 
+    // Vuelve a leer la solicitud sin pasar por Loading (para mostrar la nueva "última actualización").
+    fun refrescarSolicitud() {
+        viewModelScope.launch { cargarDespuesDeGuardar() }
+    }
+
     // ---------- Acciones por perfil ----------
 
     // Cambia el estado. "texto" es el mensaje o motivo (si la acción lo pide).
+    // Si el cliente responde una solicitud pendiente de información, se guarda su respuesta
+    // y el repositorio decide el estado de destino.
     fun cambiarEstado(nuevoEstado: EstadoSolicitud, texto: String?) {
+        val estadoActual = (_estado.value as? DetalleSolicitudUiState.Success)?.solicitud?.estado
+
+        if (rol == "cliente" && estadoActual == EstadoSolicitud.PENDIENTE_INFORMACION.texto) {
+            ejecutarAccion("Respuesta enviada.") {
+                repositorio.responderInformacion(id, usuarioId, rol, texto.orEmpty())
+            }
+            return
+        }
+
         ejecutarAccion("Estado actualizado a ${nuevoEstado.texto}.") {
             repositorio.cambiarEstado(id, usuarioId, rol, nuevoEstado, texto)
         }

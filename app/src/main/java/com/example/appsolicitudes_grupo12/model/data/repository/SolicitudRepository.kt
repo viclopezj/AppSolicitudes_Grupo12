@@ -266,8 +266,13 @@ class SolicitudRepository(
                 throw TransicionNoPermitidaException()
             }
 
+            // El cliente responde la información con responderInformacion, que guarda su respuesta
+            if (rol == ROL_CLIENTE && estadoActual == EstadoSolicitud.PENDIENTE_INFORMACION) {
+                throw TransicionNoPermitidaException()
+            }
+
             val motivo = comentario?.trim()?.takeIf { it.isNotEmpty() }
-            if (ReglasTransicion.requiereMotivo(nuevoEstado) && motivo == null) {
+            if (ReglasTransicion.requiereMotivo(estadoActual, nuevoEstado) && motivo == null) {
                 throw MotivoObligatorioException()
             }
 
@@ -341,6 +346,55 @@ class SolicitudRepository(
         }
     }
 
+    // El cliente responde la información pedida: su respuesta queda como comentario visible
+    // y la solicitud pasa a En proceso (si ya tiene técnico) o a En revisión.
+    suspend fun responderInformacion(
+        id: Int,
+        usuarioId: Int,
+        rol: String,
+        respuesta: String
+    ): Result<Unit> {
+        return enTransaccion<Unit> {
+            if (rol != ROL_CLIENTE) throw TransicionNoPermitidaException()
+
+            val solicitud = dao.obtenerPorId(id, usuarioId, rol)
+                ?: throw SolicitudNoEncontradaException()
+            if (EstadoSolicitud.desdeTexto(solicitud.estado) != EstadoSolicitud.PENDIENTE_INFORMACION) {
+                throw TransicionNoPermitidaException()
+            }
+
+            val texto = respuesta.trim()
+            if (texto.isEmpty()) throw MotivoObligatorioException()
+
+            val destino = ReglasTransicion.destinoAlResponder(solicitud.asignadoAUsuarioId != null)
+            val ahora = System.currentTimeMillis()
+            dao.actualizar(solicitud.copy(estado = destino.texto, ultimaActualizacion = ahora))
+
+            registrarHistorial(
+                solicitudId = id,
+                estadoAnterior = EstadoSolicitud.PENDIENTE_INFORMACION.texto,
+                estadoNuevo = destino.texto,
+                accion = ACCION_ESTADO,
+                comentario = texto,
+                usuarioId = usuarioId,
+                rol = rol,
+                fecha = ahora
+            )
+
+            comentarioDao.insertar(
+                ComentarioSolicitudEntity(
+                    solicitudId = id,
+                    usuarioId = usuarioId,
+                    usuarioNombre = nombreDe(usuarioId),
+                    rol = rol,
+                    texto = texto,
+                    esInterno = false,
+                    fecha = ahora
+                )
+            )
+        }
+    }
+
     // Agrega un comentario de seguimiento. El cliente nunca puede crear uno interno.
     suspend fun agregarComentario(
         id: Int,
@@ -353,6 +407,15 @@ class SolicitudRepository(
         return enTransaccion<Unit> {
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
                 ?: throw SolicitudNoEncontradaException()
+
+            // El técnico solo registra avances mientras trabaja la solicitud
+            if (rol == ROL_TECNICO) {
+                val estadoActual = EstadoSolicitud.desdeTexto(solicitud.estado)
+                    ?: throw TransicionNoPermitidaException()
+                if (!ReglasTransicion.puedeRegistrarAvance(rol, estadoActual)) {
+                    throw TransicionNoPermitidaException()
+                }
+            }
 
             val interno = esInterno && rol != ROL_CLIENTE
             val ahora = System.currentTimeMillis()

@@ -77,6 +77,10 @@ dependencies {
     // --- Imágenes (foto de evidencia) ---
     implementation(libs.coil.compose)   // Coil: AsyncImage muestra la foto guardada
 
+    // --- API REST (catálogo externo de servicios) ---
+    implementation(libs.retrofit)                  // Retrofit: llamadas HTTP a la API
+    implementation(libs.retrofit.converter.gson)   // Gson: JSON de la API -> objetos Kotlin
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
@@ -84,4 +88,4 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
-}
+}

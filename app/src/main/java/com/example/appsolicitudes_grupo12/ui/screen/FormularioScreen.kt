@@ -77,6 +77,8 @@ import com.example.appsolicitudes_grupo12.ui.adaptive.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.ui.camera.CameraPermissionHelper
 import com.example.appsolicitudes_grupo12.ui.components.IconoError
 import com.example.appsolicitudes_grupo12.ui.components.ImagenQrSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.SelectorServicio
+import com.example.appsolicitudes_grupo12.viewmodel.CatalogoViewModel
 import com.example.appsolicitudes_grupo12.viewmodel.FormularioViewModel
 import java.io.File
 
@@ -90,11 +92,13 @@ fun FormularioScreen(
     viewModel: FormularioViewModel = viewModel(
         factory = FormularioViewModel.factory(LocalContext.current, usuarioId, rol)
     ),
+    catalogoViewModel: CatalogoViewModel = viewModel(factory = CatalogoViewModel.factory()),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onGuardado: () -> Unit = {},
     onVolver: () -> Unit = {}
 ) {
     val estado by viewModel.estado.collectAsState()
+    val catalogo by catalogoViewModel.estado.collectAsState()
     val context = LocalContext.current
 
     // Mensajes emergentes para errores de guardado y de la foto
@@ -280,25 +284,14 @@ fun FormularioScreen(
                     }
                 }
 
-                // Servicio relacionado (obligatorio o no según la categoría)
-                val servicioObligatorio = ValidadorSolicitud.servicioObligatorio(estado.categoria)
-                OutlinedTextField(
-                    value = estado.servicio,
-                    onValueChange = viewModel::onServicioChange,
-                    label = {
-                        Text(
-                            if (servicioObligatorio) "Servicio relacionado *"
-                            else "Servicio relacionado (opcional)"
-                        )
-                    },
-                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
-                    trailingIcon = { if (estado.errores.servicio != null) IconoError() },
-                    singleLine = true,
-                    isError = estado.errores.servicio != null,
-                    supportingText = {
-                        estado.errores.servicio?.let { Text(it) }
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                // Servicio relacionado: se elige del catálogo externo (obligatorio o no según la categoría)
+                SelectorServicio(
+                    servicio = estado.servicio,
+                    obligatorio = ValidadorSolicitud.servicioObligatorio(estado.categoria),
+                    error = estado.errores.servicio,
+                    catalogo = catalogo,
+                    onServicioChange = viewModel::onServicioChange,
+                    onReintentar = catalogoViewModel::cargarCatalogo
                 )
 
                 // Evidencia (foto opcional)

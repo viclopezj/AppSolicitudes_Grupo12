@@ -62,6 +62,14 @@ object ReglasTransicion {
         return hasta == CANCELADA || hasta == PENDIENTE_INFORMACION || hasta == RESUELTA
     }
 
+    // Mensaje obligatorio según de dónde sale la solicitud:
+    // el cliente que responde información o pide reapertura también debe escribir.
+    fun requiereMotivo(desde: EstadoSolicitud, hasta: EstadoSolicitud): Boolean {
+        return requiereMotivo(hasta) ||
+                desde == PENDIENTE_INFORMACION ||
+                (desde == RESUELTA && hasta == EN_REVISION)
+    }
+
     // Solo el administrador cambia la prioridad.
     fun puedeCambiarPrioridad(rol: String): Boolean {
         return rol == ADMINISTRADOR
@@ -75,5 +83,10 @@ object ReglasTransicion {
     // Reasignar: solo el administrador y solo mientras está Asignada o En proceso.
     fun puedeReasignar(rol: String, estado: EstadoSolicitud): Boolean {
         return rol == ADMINISTRADOR && (estado == ASIGNADA || estado == EN_PROCESO)
+    }
+
+    // Registrar avances: solo el técnico y solo mientras trabaja la solicitud (Asignada o En proceso).
+    fun puedeRegistrarAvance(rol: String, estado: EstadoSolicitud): Boolean {
+        return rol == TECNICO && (estado == ASIGNADA || estado == EN_PROCESO)
     }
 }

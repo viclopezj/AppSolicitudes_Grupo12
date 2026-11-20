@@ -32,6 +32,9 @@ zxing = "3.5.3"
 # Se usa la 3.3.0 y no la más nueva porque las versiones recientes (3.5 en adelante)
 # están hechas con Kotlin 2.4 y este proyecto usa Kotlin 2.2.10.
 coil = "3.3.0"
+# Retrofit: cliente HTTP para consumir la API REST del catálogo de servicios.
+# Trae OkHttp (la parte que hace la conexión) incluido, por eso no se declara aparte.
+retrofit = "3.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -73,6 +76,10 @@ mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning"
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 # Coil: carga y muestra imágenes (AsyncImage). Aquí se usa para la foto de evidencia
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+# Retrofit: convierte la interfaz ApiService en llamadas HTTP (GET, parámetros, etc.)
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+# Convertidor Gson: transforma el JSON que responde la API en objetos Kotlin
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
