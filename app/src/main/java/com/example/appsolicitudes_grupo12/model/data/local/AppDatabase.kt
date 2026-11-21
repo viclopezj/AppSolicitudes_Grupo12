@@ -10,7 +10,7 @@ import androidx.sqlite.async.executeSQL
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 
 // Base de datos Room: conecta las tablas con sus DAO.
-// Versión 4: agrega prioridad, última actualización, historial y comentarios.
+// Versión 5: agrega la eliminación lógica de solicitudes (columna "eliminada").
 @Database(
     entities = [
         SolicitudEntity::class,
@@ -18,7 +18,7 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
         HistorialSolicitudEntity::class,
         ComentarioSolicitudEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,7 +40,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     "solicitudes_database"
                 )
-                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4)
+                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4, MIGRACION_4_5)
                     // Room 3 exige indicar el driver de SQLite
                     .setDriver(BundledSQLiteDriver())
                     .build()
@@ -135,6 +135,15 @@ abstract class AppDatabase : RoomDatabase() {
                             "'cliente', COALESCE(s.creadoPorUsuarioId, 0), " +
                             "COALESCE(u.nombre, 'Sin registro'), s.fechaCreacion " +
                             "FROM solicitudes s LEFT JOIN usuarios u ON u.id = s.creadoPorUsuarioId"
+                )
+            }
+        }
+        // Migración 4 -> 5: agrega la marca de eliminación lógica. Las solicitudes existentes
+        // quedan visibles (eliminada = 0). No se borra ningún dato.
+        private val MIGRACION_4_5 = object : Migration(4, 5) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                connection.executeSQL(
+                    "ALTER TABLE solicitudes ADD COLUMN eliminada INTEGER NOT NULL DEFAULT 0"
                 )
             }
         }

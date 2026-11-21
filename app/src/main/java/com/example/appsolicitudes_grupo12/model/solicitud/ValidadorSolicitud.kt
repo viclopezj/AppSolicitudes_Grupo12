@@ -5,17 +5,11 @@ import com.example.appsolicitudes_grupo12.state.FormularioErrores
 // Reglas de validación compartidas por el formulario y la edición de solicitudes.
 object ValidadorSolicitud {
 
-    // Indica si el servicio relacionado es obligatorio para esa categoría.
-    fun servicioObligatorio(categoria: String): Boolean {
-        return categoria.isNotBlank() && categoria !in CategoriasSolicitud.SIN_SERVICIO
-    }
-
-    // Revisa los cuatro campos y devuelve un error por campo (null = campo válido).
+    // Revisa título, descripción y categoría (null = campo válido). El servicio es opcional.
     fun validar(
         titulo: String,
         descripcion: String,
-        categoria: String,
-        servicio: String
+        categoria: String
     ): FormularioErrores {
         return FormularioErrores(
             titulo = if (titulo.isBlank()) {
@@ -32,10 +26,6 @@ object ValidadorSolicitud {
 
             categoria = if (categoria.isBlank()) {
                 "Selecciona una categoría"
-            } else null,
-
-            servicio = if (servicioObligatorio(categoria) && servicio.isBlank()) {
-                "Indica el servicio relacionado"
             } else null
         )
     }

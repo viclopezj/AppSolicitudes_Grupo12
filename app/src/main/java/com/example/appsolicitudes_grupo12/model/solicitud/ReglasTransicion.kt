@@ -85,8 +85,21 @@ object ReglasTransicion {
         return rol == ADMINISTRADOR && (estado == ASIGNADA || estado == EN_PROCESO)
     }
 
-    // Registrar avances: solo el técnico y solo mientras trabaja la solicitud (Asignada o En proceso).
+    // Registrar avances: solo el técnico y solo mientras la solicitud está En proceso.
     fun puedeRegistrarAvance(rol: String, estado: EstadoSolicitud): Boolean {
-        return rol == TECNICO && (estado == ASIGNADA || estado == EN_PROCESO)
+        return rol == TECNICO && estado == EN_PROCESO
+    }
+
+    // Editar datos: cliente y administrador, solo antes de asignar la solicitud.
+    fun puedeEditar(rol: String, estado: EstadoSolicitud): Boolean {
+        return (rol == CLIENTE || rol == ADMINISTRADOR) &&
+                (estado == RECIBIDA || estado == EN_REVISION || estado == PENDIENTE_INFORMACION)
+    }
+
+    // Eliminar (lógicamente): cliente y administrador, solo si está Cerrada o Cancelada.
+    // Que el cliente solo elimine las suyas lo garantiza la consulta por id del DAO.
+    fun puedeEliminar(rol: String, estado: EstadoSolicitud): Boolean {
+        return (rol == CLIENTE || rol == ADMINISTRADOR) &&
+                (estado == CERRADA || estado == CANCELADA)
     }
 }

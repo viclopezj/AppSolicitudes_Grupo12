@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaArchivos
+import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaInvalidaException
 import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
 import com.example.appsolicitudes_grupo12.model.solicitud.ValidadorSolicitud
@@ -50,19 +51,14 @@ class FormularioViewModel(
     }
 
     fun onCategoriaChange(valor: String) {
-        // También limpia el error del servicio, porque su obligatoriedad depende de la categoría
         _estado.update {
-            it.copy(
-                categoria = valor,
-                errores = it.errores.copy(categoria = null, servicio = null)
-            )
+            it.copy(categoria = valor, errores = it.errores.copy(categoria = null))
         }
     }
 
     fun onServicioChange(valor: String) {
-        _estado.update {
-            it.copy(servicio = valor, errores = it.errores.copy(servicio = null))
-        }
+        _estado.update { it.copy(servicio = valor) }
+    }
     }
 
     // ---------- Eventos de la foto de evidencia ----------
@@ -75,7 +71,12 @@ class FormularioViewModel(
     // La cámara terminó: se comprueba que la foto exista y se deja en el estado.
     fun onFotoTomada(archivo: File) {
         if (archivo.exists() && archivo.length() > 0) {
-            usarFoto(EvidenciaArchivos.aTexto(archivo))
+            if (EvidenciaArchivos.excedeTamano(archivo)) {
+                archivo.delete()
+                _estado.update { it.copy(errorFoto = EvidenciaArchivos.MENSAJE_TAMANO) }
+            } else {
+                usarFoto(EvidenciaArchivos.aTexto(archivo))
+            }
         } else {
             archivo.delete()
             _estado.update {
@@ -98,20 +99,21 @@ class FormularioViewModel(
 
         viewModelScope.launch {
             // La copia se hace en segundo plano para no congelar la pantalla
-            val archivo = withContext(Dispatchers.IO) {
+            val resultado = withContext(Dispatchers.IO) {
                 EvidenciaArchivos.copiarDeGaleria(contexto, uri)
             }
 
-            if (archivo != null) {
-                usarFoto(EvidenciaArchivos.aTexto(archivo))
-            } else {
-                _estado.update {
-                    it.copy(
-                        cargandoFoto = false,
-                        errorFoto = "No se pudo cargar la imagen. Prueba con otra."
-                    )
+            resultado
+                .onSuccess { archivo -> usarFoto(EvidenciaArchivos.aTexto(archivo)) }
+                .onFailure { error ->
+                    _estado.update {
+                        it.copy(
+                            cargandoFoto = false,
+                            errorFoto = (error as? EvidenciaInvalidaException)?.message
+                                ?: "No se pudo cargar la imagen. Prueba con otra."
+                        )
+                    }
                 }
-            }
         }
     }
 
@@ -154,8 +156,7 @@ class FormularioViewModel(
         val errores = ValidadorSolicitud.validar(
             titulo = actual.titulo,
             descripcion = actual.descripcion,
-            categoria = actual.categoria,
-            servicio = actual.servicio
+            categoria = actual.categoria
         )
 
         _estado.update { it.copy(errores = errores) }

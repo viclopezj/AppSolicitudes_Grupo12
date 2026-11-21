@@ -19,7 +19,4 @@ object CategoriasSolicitud {
         "Acceso o configuración",
         "Otro requerimiento"
     )
-
-    // Categorías donde el servicio relacionado NO es obligatorio
-    val SIN_SERVICIO = setOf("Consulta", "Otro requerimiento")
 }

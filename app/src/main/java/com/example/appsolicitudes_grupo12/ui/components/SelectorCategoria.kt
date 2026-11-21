@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,26 +25,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.appsolicitudes_grupo12.state.CatalogoUiState
 
-// Selector del servicio relacionado:
+// Selector de la categoría de la solicitud:
 //   - Catálogo cargado: lista desplegable.
 //   - Cargando: campo bloqueado con indicador.
 //   - Error o catálogo vacío: campo de texto manual, mensaje y botón "Reintentar".
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SelectorServicio(
-    servicio: String,
-    obligatorio: Boolean,
+fun SelectorCategoria(
+    categoria: String,
     error: String?,
     catalogo: CatalogoUiState,
-    onServicioChange: (String) -> Unit,
+    onCategoriaChange: (String) -> Unit,
     onReintentar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val etiqueta = if (obligatorio) "Servicio relacionado *" else "Servicio relacionado (opcional)"
     var menuAbierto by remember { mutableStateOf(false) }
 
     Column(
@@ -58,11 +55,13 @@ fun SelectorServicio(
                     onExpandedChange = { menuAbierto = it }
                 ) {
                     OutlinedTextField(
-                        value = servicio,
+                        value = categoria,
                         onValueChange = {},          // no se escribe: solo se elige de la lista
                         readOnly = true,
-                        label = { Text(etiqueta) },
-                        leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
+                        label = { Text("Categoría *") },
+                        leadingIcon = {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                        },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuAbierto)
                         },
@@ -77,33 +76,11 @@ fun SelectorServicio(
                         expanded = menuAbierto,
                         onDismissRequest = { menuAbierto = false }
                     ) {
-                        // Si el servicio es opcional, se puede dejar sin elegir
-                        if (!obligatorio) {
+                        catalogo.categorias.forEach { item ->
                             DropdownMenuItem(
-                                text = { Text("Sin servicio relacionado") },
+                                text = { Text(item.nombre) },
                                 onClick = {
-                                    onServicioChange("")
-                                    menuAbierto = false
-                                }
-                            )
-                        }
-
-                        catalogo.servicios.forEach { item ->
-                            DropdownMenuItem(
-                                text = {
-                                    Column {
-                                        Text("${item.id}. ${item.servicio}")
-                                        Text(
-                                            text = "${item.categoria} · ${item.descripcion}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                },
-                                onClick = {
-                                    onServicioChange(item.servicio)
+                                    onCategoriaChange(item.nombre)
                                     menuAbierto = false
                                 }
                             )
@@ -114,29 +91,34 @@ fun SelectorServicio(
 
             CatalogoUiState.Loading -> {
                 OutlinedTextField(
-                    value = servicio,
+                    value = categoria,
                     onValueChange = {},
                     enabled = false,
-                    label = { Text(etiqueta) },
-                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
+                    label = { Text("Categoría *") },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                    },
                     trailingIcon = {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )
                     },
-                    supportingText = { Text("Cargando catálogo…") },
+                    isError = error != null,
+                    supportingText = { Text(error ?: "Cargando categorías…") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
 
             else -> {
-                // Respaldo: sin catálogo se escribe el servicio a mano
+                // Respaldo: sin catálogo se escribe la categoría a mano
                 OutlinedTextField(
-                    value = servicio,
-                    onValueChange = onServicioChange,
-                    label = { Text(etiqueta) },
-                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
+                    value = categoria,
+                    onValueChange = onCategoriaChange,
+                    label = { Text("Categoría *") },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                    },
                     trailingIcon = { if (error != null) IconoError() },
                     singleLine = true,
                     isError = error != null,
@@ -145,9 +127,9 @@ fun SelectorServicio(
                 )
 
                 val aviso = if (catalogo is CatalogoUiState.Error) {
-                    catalogo.mensaje + " Puedes escribir el servicio a mano."
+                    catalogo.mensaje + " Puedes escribir la categoría a mano."
                 } else {
-                    "El catálogo no tiene servicios. Escribe el servicio a mano."
+                    "El catálogo no tiene categorías. Escribe la categoría a mano."
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {

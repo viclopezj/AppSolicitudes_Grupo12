@@ -173,6 +173,12 @@ class SolicitudRepository(
             val actual = dao.obtenerPorId(id, usuarioId, rol)
                 ?: return Result.failure(SolicitudNoEncontradaException())
 
+            // Solo se edita en los estados permitidos
+            val estadoActual = EstadoSolicitud.desdeTexto(actual.estado)
+            if (estadoActual == null || !ReglasTransicion.puedeEditar(rol, estadoActual)) {
+                return Result.failure(TransicionNoPermitidaException())
+            }
+
             val modificada = actual.copy(
                 titulo = titulo.trim(),
                 descripcion = descripcion.trim(),
@@ -364,6 +370,36 @@ class SolicitudRepository(
         }.avisar { it }.map { }
     }
 
+    // Eliminación lógica: solo Cerrada o Cancelada. La solicitud deja de mostrarse, pero la fila,
+    // el historial, los comentarios y las evidencias siguen guardados. Si elimina el
+    // administrador, se avisa al cliente.
+    suspend fun eliminarSolicitud(id: Int, usuarioId: Int, rol: String): Result<Unit> {
+        return enTransaccion<AvisoSolicitud?> {
+            // El cliente solo encuentra las suyas; el técnico nunca puede eliminar
+            val solicitud = dao.obtenerPorId(id, usuarioId, rol)
+                ?: throw SolicitudNoEncontradaException()
+
+            val estado = EstadoSolicitud.desdeTexto(solicitud.estado)
+            if (estado == null || !ReglasTransicion.puedeEliminar(rol, estado)) {
+                throw TransicionNoPermitidaException()
+            }
+
+            dao.marcarEliminada(id)
+            registrarHistorial(
+                solicitudId = id,
+                estadoAnterior = solicitud.estado,
+                estadoNuevo = solicitud.estado,
+                accion = ACCION_ELIMINACION,
+                comentario = null,
+                usuarioId = usuarioId,
+                rol = rol,
+                fecha = System.currentTimeMillis()
+            )
+
+            if (rol == ROL_ADMINISTRADOR) Avisos.eliminadaPorAdministrador(solicitud.codigo) else null
+        }.avisar { it }.map { }
+    }
+
     // El cliente responde la información pedida: su respuesta queda como comentario visible
     // y la solicitud pasa a En proceso (si ya tiene técnico) o a En revisión.
     suspend fun responderInformacion(
@@ -528,5 +564,6 @@ class SolicitudRepository(
         const val ACCION_REASIGNACION = "Técnico reasignado"
         const val ACCION_PRIORIDAD = "Prioridad modificada"
         const val ACCION_CANCELACION = "Solicitud cancelada"
+        const val ACCION_ELIMINACION = "Solicitud eliminada"
     }
 }

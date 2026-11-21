@@ -50,6 +50,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
+import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
+import com.example.appsolicitudes_grupo12.model.solicitud.ReglasTransicion
 import com.example.appsolicitudes_grupo12.ui.components.EtiquetaEstado
 import com.example.appsolicitudes_grupo12.viewmodel.AsignarSolicitudesViewModel
 import kotlinx.coroutines.delay
@@ -188,6 +190,12 @@ private fun TarjetaAsignacion(
         mutableStateOf(solicitud.asignadoAUsuarioId)
     }
     val nombreTecnico = tecnicos.firstOrNull { it.id == tecnicoElegido }?.nombre
+    val nombreActual = tecnicos.firstOrNull { it.id == solicitud.asignadoAUsuarioId }?.nombre
+    val estado = EstadoSolicitud.desdeTexto(solicitud.estado)
+    // Los controles solo aparecen cuando el estado permite asignar o reasignar
+    val puedeGestionar = estado != null &&
+            (ReglasTransicion.puedeAsignar("administrador", estado) ||
+                    ReglasTransicion.puedeReasignar("administrador", estado))
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -208,6 +216,7 @@ private fun TarjetaAsignacion(
                 EtiquetaEstado(solicitud.estado)
             }
 
+            if (puedeGestionar) {
             Box {
                 TextButton(onClick = { menuAbierto = true }) {
                     Text(nombreTecnico ?: "Seleccionar técnico ▾")
@@ -238,6 +247,9 @@ private fun TarjetaAsignacion(
                     strokeWidth = 2.dp
                 )
                 else Text(if (solicitud.asignadoAUsuarioId == null) "Asignar" else "Guardar asignación")
+            }
+            } else {
+                Text("Técnico: ${nombreActual ?: "Sin asignar"}")
             }
         }
     }

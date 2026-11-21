@@ -67,10 +67,21 @@ class ReglasTransicionTest : FunSpec({
         ReglasTransicion.puedeReasignar(admin, RECIBIDA) shouldBe false
     }
 
-    test("el técnico registra avances solo en Asignada o En proceso") {
-        ReglasTransicion.puedeRegistrarAvance(tecnico, ASIGNADA) shouldBe true
+    test("el técnico registra avances solo En proceso; edición y eliminación se limitan por estado") {        ReglasTransicion.puedeRegistrarAvance(tecnico, ASIGNADA) shouldBe false
         ReglasTransicion.puedeRegistrarAvance(tecnico, EN_PROCESO) shouldBe true
-        ReglasTransicion.puedeRegistrarAvance(tecnico, RESUELTA) shouldBe false
         ReglasTransicion.puedeRegistrarAvance(admin, EN_PROCESO) shouldBe false
+
+        ReglasTransicion.puedeEditar(cliente, RECIBIDA) shouldBe true
+        ReglasTransicion.puedeEditar(admin, PENDIENTE_INFORMACION) shouldBe true
+        ReglasTransicion.puedeEditar(cliente, ASIGNADA) shouldBe false
+        ReglasTransicion.puedeEditar(cliente, RESUELTA) shouldBe false
+        ReglasTransicion.puedeEditar(tecnico, RECIBIDA) shouldBe false
+
+        // Eliminación lógica: solo Cerrada o Cancelada, y nunca el técnico
+        ReglasTransicion.puedeEliminar(cliente, CERRADA) shouldBe true
+        ReglasTransicion.puedeEliminar(admin, CANCELADA) shouldBe true
+        ReglasTransicion.puedeEliminar(cliente, RESUELTA) shouldBe false
+        ReglasTransicion.puedeEliminar(admin, EN_PROCESO) shouldBe false
+        ReglasTransicion.puedeEliminar(tecnico, CERRADA) shouldBe false
     }
 })

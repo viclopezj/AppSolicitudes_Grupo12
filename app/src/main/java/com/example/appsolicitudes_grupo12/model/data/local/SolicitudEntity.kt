@@ -41,5 +41,8 @@ data class SolicitudEntity(
     val prioridad: String = PrioridadSolicitud.POR_DEFECTO.texto,
 
     // Fecha del último cambio, en milisegundos. Parte igual a la fecha de creación.
-    val ultimaActualizacion: Long = fechaCreacion
+    val ultimaActualizacion: Long = fechaCreacion,
+
+    // Eliminación lógica (desde la versión 5): true = la app la oculta, pero sigue guardada en Room.
+    val eliminada: Boolean = false
 )

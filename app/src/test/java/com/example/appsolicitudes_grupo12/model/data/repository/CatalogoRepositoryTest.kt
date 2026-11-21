@@ -1,6 +1,6 @@
 package com.example.appsolicitudes_grupo12.model.data.repository
 
-import com.example.appsolicitudes_grupo12.model.catalogo.ServicioCatalogo
+import com.example.appsolicitudes_grupo12.model.catalogo.CategoriaCatalogo
 import com.example.appsolicitudes_grupo12.model.data.remote.ApiService
 import com.example.appsolicitudes_grupo12.model.data.remote.ProductoDto
 import com.example.appsolicitudes_grupo12.model.data.remote.ProductosRespuesta
@@ -15,17 +15,13 @@ import java.io.IOException
 // Pruebas del repositorio del catálogo con un ApiService simulado (sin internet).
 class CatalogoRepositoryTest : FunSpec({
 
-    test("convierte los productos de la API en servicios del catálogo") {
+    test("asigna por orden los nombres de categoría del caso a los productos de la API") {
         runTest {
             val api = mockk<ApiService>()
             coEvery { api.obtenerProductos(any(), any()) } returns ProductosRespuesta(
                 products = listOf(
-                    ProductoDto(
-                        id = 1,
-                        title = "  Mantenimiento web ",
-                        category = "home-decoration",
-                        description = "Actualización de sitios"
-                    )
+                    ProductoDto(id = 11, title = "Producto A"),
+                    ProductoDto(id = 12, title = "Producto B")
                 )
             )
 
@@ -33,12 +29,8 @@ class CatalogoRepositoryTest : FunSpec({
 
             resultado.isSuccess shouldBe true
             resultado.getOrNull() shouldBe listOf(
-                ServicioCatalogo(
-                    id = 1,
-                    servicio = "Mantenimiento web",
-                    categoria = "Home decoration",
-                    descripcion = "Actualización de sitios"
-                )
+                CategoriaCatalogo(id = 11, nombre = "Desarrollo web"),
+                CategoriaCatalogo(id = 12, nombre = "Mantenimiento web")
             )
             // Se pide el catálogo con el límite y los campos acordados
             coVerify(exactly = 1) {
@@ -47,26 +39,21 @@ class CatalogoRepositoryTest : FunSpec({
         }
     }
 
-    test("descarta los productos sin id o sin nombre y completa los datos que faltan") {
+    test("descarta los productos sin id o sin título") {
         runTest {
             val api = mockk<ApiService>()
             coEvery { api.obtenerProductos(any(), any()) } returns ProductosRespuesta(
                 products = listOf(
                     ProductoDto(id = null, title = "Sin id"),
                     ProductoDto(id = 2, title = "   "),
-                    ProductoDto(id = 3, title = "Hosting", category = null, description = null)
+                    ProductoDto(id = 3, title = "Válido")
                 )
             )
 
             val resultado = CatalogoRepository(api).obtenerCatalogo()
 
             resultado.getOrNull() shouldBe listOf(
-                ServicioCatalogo(
-                    id = 3,
-                    servicio = "Hosting",
-                    categoria = "Sin categoría",
-                    descripcion = ""
-                )
+                CategoriaCatalogo(id = 3, nombre = "Desarrollo web")
             )
         }
     }
@@ -79,7 +66,7 @@ class CatalogoRepositoryTest : FunSpec({
             val resultado = CatalogoRepository(api).obtenerCatalogo()
 
             resultado.isSuccess shouldBe true
-            resultado.getOrNull() shouldBe emptyList<ServicioCatalogo>()
+            resultado.getOrNull() shouldBe emptyList<CategoriaCatalogo>()
         }
     }
 

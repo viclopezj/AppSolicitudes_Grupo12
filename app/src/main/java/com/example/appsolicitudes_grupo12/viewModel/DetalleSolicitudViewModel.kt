@@ -22,20 +22,23 @@ import kotlinx.coroutines.launch
 import com.example.appsolicitudes_grupo12.model.data.repository.MotivoObligatorioException
 import com.example.appsolicitudes_grupo12.model.data.repository.TransicionNoPermitidaException
 import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
+import com.example.appsolicitudes_grupo12.model.solicitud.ReglasTransicion
 import com.example.appsolicitudes_grupo12.state.AccionesUiState
 import kotlinx.coroutines.flow.update
-import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
-import com.example.appsolicitudes_grupo12.model.data.repository.UsuarioRepository
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 import com.example.appsolicitudes_grupo12.model.aviso.NotificadorAndroid
+import com.example.appsolicitudes_grupo12.model.aviso.Avisos
+import com.example.appsolicitudes_grupo12.model.aviso.Notificador
+import com.example.appsolicitudes_grupo12.model.aviso.NotificadorNulo
+import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
 
 // ViewModel del detalle: lee UNA solicitud, pasa de lectura a edición, valida y guarda cambios.
 class DetalleSolicitudViewModel(
     private val repositorio: SolicitudRepository,
-    private val repositorioUsuarios: UsuarioRepository,
     private val id: Int,
     private val usuarioId: Int,
-    private val rol: String
+    private val rol: String,
+    private val notificador: Notificador = NotificadorNulo
 ) : ViewModel() {
 
     // Parte en Loading mientras llega la solicitud
@@ -55,18 +58,21 @@ class DetalleSolicitudViewModel(
     private val _acciones = MutableStateFlow(AccionesUiState())
     val acciones: StateFlow<AccionesUiState> = _acciones.asStateFlow()
 
-    // Técnicos disponibles para asignar (solo se cargan para el administrador)
-    private val _tecnicos = MutableStateFlow<List<UsuarioEntity>>(emptyList())
-    val tecnicos: StateFlow<List<UsuarioEntity>> = _tecnicos.asStateFlow()
+    // Cliente y administrador editan solo en los estados permitidos
+    fun puedeEditar(estadoTexto: String): Boolean {
+        val estado = EstadoSolicitud.desdeTexto(estadoTexto) ?: return false
+        return ReglasTransicion.puedeEditar(rol, estado)
+    }
 
-    // El cliente edita sus solicitudes y el administrador puede corregir cualquiera
-    val puedeEditar: Boolean
-        get() = rol == "administrador" || rol == "cliente"
+    // Cliente y administrador eliminan solo solicitudes Cerradas o Canceladas
+    fun puedeEliminar(estadoTexto: String): Boolean {
+        val estado = EstadoSolicitud.desdeTexto(estadoTexto) ?: return false
+        return ReglasTransicion.puedeEliminar(rol, estado)
+    }
 
     init {
         cargarSolicitud()
         observarSeguimiento()
-        cargarTecnicos()
     }
 
     // ---------- Lectura ----------
@@ -110,22 +116,12 @@ class DetalleSolicitudViewModel(
         }
     }
 
-    // Lee las cuentas técnicas para el selector de asignación.
-    private fun cargarTecnicos() {
-        if (rol != "administrador") return
-        viewModelScope.launch {
-            repositorioUsuarios.obtenerTecnicos()
-                .onSuccess { _tecnicos.value = it }
-                .onFailure { Log.e("DetalleSolicitudVM", "Error al leer los técnicos", it) }
-        }
-    }
-
     // ---------- Modo lectura <-> modo edición ----------
 
     // Pasa al modo edición con los valores ya guardados.
     fun iniciarEdicion() {
-        if (!puedeEditar) return
         val actual = _estado.value as? DetalleSolicitudUiState.Success ?: return
+        if (!puedeEditar(actual.solicitud.estado)) return
         _estado.value = actual.copy(
             edicion = EdicionSolicitud(
                 titulo = actual.solicitud.titulo,
@@ -158,19 +154,13 @@ class DetalleSolicitudViewModel(
     }
 
     fun onCategoriaChange(valor: String) {
-        // También limpia el error del servicio, porque su obligatoriedad depende de la categoría
         modificarEdicion {
-            it.copy(
-                categoria = valor,
-                errores = it.errores.copy(categoria = null, servicio = null)
-            )
+            it.copy(categoria = valor, errores = it.errores.copy(categoria = null))
         }
     }
 
     fun onServicioChange(valor: String) {
-        modificarEdicion {
-            it.copy(servicio = valor, errores = it.errores.copy(servicio = null))
-        }
+        modificarEdicion { it.copy(servicio = valor) }
     }
 
     // Aplica un cambio a la edición actual (solo si está en modo edición).
@@ -190,8 +180,7 @@ class DetalleSolicitudViewModel(
         val errores = ValidadorSolicitud.validar(
             titulo = edicion.titulo,
             descripcion = edicion.descripcion,
-            categoria = edicion.categoria,
-            servicio = edicion.servicio
+            categoria = edicion.categoria
         )
 
         modificarEdicion { it.copy(errores = errores) }
@@ -282,10 +271,39 @@ class DetalleSolicitudViewModel(
         }
     }
 
-    // Asigna o reasigna el técnico (solo administrador).
-    fun asignarTecnico(tecnicoId: Int) {
-        ejecutarAccion("Técnico asignado.") {
-            repositorio.asignarTecnico(id, tecnicoId, usuarioId, rol)
+    // Eliminación lógica (solo Cerrada o Cancelada). Si sale bien, avisa a la pantalla para volver.
+    fun eliminar(onEliminada: () -> Unit) {
+        if (_acciones.value.procesando) return
+        _acciones.update { it.copy(procesando = true, error = null, mensaje = null) }
+
+        viewModelScope.launch {
+            repositorio.eliminarSolicitud(id, usuarioId, rol)
+                .onSuccess {
+                    _acciones.update { it.copy(procesando = false) }
+                    onEliminada()
+                }
+                .onFailure { error ->
+                    val mensaje = when (error) {
+                        is TransicionNoPermitidaException ->
+                            "Solo se pueden eliminar solicitudes Cerradas o Canceladas."
+
+                        is SolicitudNoEncontradaException -> "La solicitud ya no existe."
+                        else -> {
+                            Log.e("DetalleSolicitudVM", "Error al eliminar la solicitud", error)
+                            "No se pudo eliminar la solicitud. Inténtalo de nuevo."
+                        }
+                    }
+                    _acciones.update { it.copy(procesando = false, error = mensaje) }
+                }
+        }
+    }
+
+    // WhatsApp simulado (solo cliente): publica el aviso local y confirma con un mensaje breve.
+    fun compartirPorWhatsApp(solicitud: SolicitudEntity) {
+        if (rol != "cliente") return
+        notificador.publicar(Avisos.referenciaCompartida(solicitud.codigo))
+        _acciones.update {
+            it.copy(error = null, mensaje = "Referencia compartida por WhatsApp.")
         }
     }
 
@@ -341,10 +359,10 @@ class DetalleSolicitudViewModel(
                 @Suppress("UNCHECKED_CAST")
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
                     val baseDatos = AppDatabase.getDatabase(context)
+                    val notificador = NotificadorAndroid(context)
                     return DetalleSolicitudViewModel(
-                        SolicitudRepository(baseDatos, notificador = NotificadorAndroid(context)),
-                        UsuarioRepository(baseDatos.usuarioDao()),
-                        id, usuarioId, rol
+                        SolicitudRepository(baseDatos, notificador = notificador),
+                        id, usuarioId, rol, notificador
                     ) as T
                 }
             }

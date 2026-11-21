@@ -57,7 +57,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.SubcomposeAsyncImage
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.solicitud.CategoriasSolicitud
-import com.example.appsolicitudes_grupo12.model.solicitud.ValidadorSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.SelectorCategoria
+import com.example.appsolicitudes_grupo12.viewmodel.CatalogoViewModel
 import com.example.appsolicitudes_grupo12.state.DetalleSolicitudUiState
 import com.example.appsolicitudes_grupo12.state.EdicionSolicitud
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
@@ -72,11 +73,13 @@ import com.example.appsolicitudes_grupo12.ui.components.HistorialSolicitud
 import com.example.appsolicitudes_grupo12.ui.components.formatearFecha
 import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
 import com.example.appsolicitudes_grupo12.ui.components.AccionesSolicitud
-import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 import com.example.appsolicitudes_grupo12.ui.components.GestionSolicitud
 import com.example.appsolicitudes_grupo12.model.solicitud.ReglasTransicion
-import com.example.appsolicitudes_grupo12.ui.components.AvanceSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.EvidenciasTrabajo
+import com.example.appsolicitudes_grupo12.ui.components.EliminarSolicitud
+import com.example.appsolicitudes_grupo12.model.compartir.MensajeWhatsApp
+import com.example.appsolicitudes_grupo12.ui.components.CompartirWhatsApp
 
 // Detalle de una solicitud, con dos modos:
 //   - Lectura: datos guardados, foto de evidencia, código QR y botón "Editar solicitud".
@@ -99,7 +102,6 @@ fun DetalleSolicitudScreen(
     val historial by viewModel.historial.collectAsState()
     val comentarios by viewModel.comentarios.collectAsState()
     val acciones by viewModel.acciones.collectAsState()
-    val tecnicos by viewModel.tecnicos.collectAsState()
 
     // Mensajes emergentes para errores al guardar los cambios
     val snackbarHostState = remember { SnackbarHostState() }
@@ -177,17 +179,18 @@ fun DetalleSolicitudScreen(
                             DetalleLectura(
                                 solicitud = actual.solicitud,
                                 rol = rol,
-                                puedeEditar = viewModel.puedeEditar,
+                                puedeEditar = viewModel.puedeEditar(actual.solicitud.estado),
                                 historial = historial,
                                 comentarios = comentarios,
-                                tecnicos = tecnicos,
                                 procesando = acciones.procesando,
                                 usuarioId = usuarioId,
                                 onAvanceEnviado = viewModel::refrescarSolicitud,
                                 onEditar = viewModel::iniciarEdicion,
                                 onCambiarEstado = viewModel::cambiarEstado,
                                 onCambiarPrioridad = viewModel::cambiarPrioridad,
-                                onAsignarTecnico = viewModel::asignarTecnico
+                                puedeEliminar = viewModel.puedeEliminar(actual.solicitud.estado),
+                                onEliminar = { viewModel.eliminar(onVolver) },
+                                onCompartir = { viewModel.compartirPorWhatsApp(actual.solicitud) }
                             )
                         } else {
                             DetalleEdicion(
@@ -281,14 +284,15 @@ private fun DetalleLectura(
     puedeEditar: Boolean,
     historial: List<HistorialSolicitudEntity>,
     comentarios: List<ComentarioSolicitudEntity>,
-    tecnicos: List<UsuarioEntity>,
     procesando: Boolean,
     usuarioId: Int,
     onAvanceEnviado: () -> Unit,
     onEditar: () -> Unit,
     onCambiarEstado: (EstadoSolicitud, String?) -> Unit,
     onCambiarPrioridad: (PrioridadSolicitud) -> Unit,
-    onAsignarTecnico: (Int) -> Unit
+    puedeEliminar: Boolean,
+    onEliminar: () -> Unit,
+    onCompartir: () -> Unit
 ) {
     // Con scroll por si la descripción es larga
     Column(
@@ -343,6 +347,17 @@ private fun DetalleLectura(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+            // WhatsApp simulado: solo el cliente
+            if (rol == "cliente") {
+                CompartirWhatsApp(
+                    mensaje = MensajeWhatsApp.armar(
+                        solicitud.codigo,
+                        solicitud.titulo,
+                        solicitud.categoria
+                    ),
+                    onEnviar = onCompartir
+                )
+            }
         }
 
         if (puedeEditar) {
@@ -354,15 +369,13 @@ private fun DetalleLectura(
             }
         }
 
-        // Prioridad y asignación de técnico: solo el administrador
+        // Prioridad: solo el administrador
         if (rol == "administrador") {
             GestionSolicitud(
                 solicitud = solicitud,
                 rol = rol,
-                tecnicos = tecnicos,
                 procesando = procesando,
-                onCambiarPrioridad = onCambiarPrioridad,
-                onAsignarTecnico = onAsignarTecnico
+                onCambiarPrioridad = onCambiarPrioridad
             )
         }
 
@@ -374,20 +387,31 @@ private fun DetalleLectura(
             onCambiarEstado = onCambiarEstado
         )
 
-        // Avances con evidencia: solo el técnico, mientras trabaja la solicitud
+        // Comentarios del cliente y del administrador; los avances del técnico van en la caja
+        ComentariosSolicitud(comentarios = comentarios.filter { it.rol != "tecnico" })
+        HistorialSolicitud(historial = historial)
+
+        // Evidencias del trabajo: caja plegable al final (el técnico registra aquí En proceso)
         val estadoActual = EstadoSolicitud.desdeTexto(solicitud.estado)
-        if (estadoActual != null && ReglasTransicion.puedeRegistrarAvance(rol, estadoActual)) {
-            AvanceSolicitud(
-                id = solicitud.id,
-                usuarioId = usuarioId,
-                rol = rol,
-                onEnviado = onAvanceEnviado
+        EvidenciasTrabajo(
+            avances = comentarios.filter { it.rol == "tecnico" },
+            puedeRegistrar = estadoActual != null &&
+                    ReglasTransicion.puedeRegistrarAvance(rol, estadoActual),
+            solicitudId = solicitud.id,
+            usuarioId = usuarioId,
+            rol = rol,
+            onAvanceEnviado = onAvanceEnviado
+        )
+
+        // Eliminar (lógico): solo Cerrada o Cancelada, para cliente y administrador
+        if (puedeEliminar) {
+            EliminarSolicitud(
+                codigo = solicitud.codigo,
+                esAdministrador = rol == "administrador",
+                procesando = procesando,
+                onConfirmar = onEliminar
             )
         }
-
-        // Comentarios e historial: todos los perfiles (el cliente no recibe los internos)
-        ComentariosSolicitud(comentarios = comentarios)
-        HistorialSolicitud(historial = historial)
 
     }
 }
@@ -450,9 +474,10 @@ private fun EvidenciaSolicitud(evidenciaUri: String?) {
 private fun DetalleEdicion(
     solicitud: SolicitudEntity,
     edicion: EdicionSolicitud,
-    viewModel: DetalleSolicitudViewModel
+    viewModel: DetalleSolicitudViewModel,
+    catalogoViewModel: CatalogoViewModel = viewModel(factory = CatalogoViewModel.factory())
 ) {
-    var menuCategoriaAbierto by remember { mutableStateOf(false) }
+    val catalogo by catalogoViewModel.estado.collectAsState()
 
     // Con scroll por si el teclado ocupa espacio
     Column(
@@ -497,59 +522,24 @@ private fun DetalleEdicion(
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Categoría (lista desplegable)
-        ExposedDropdownMenuBox(
-            expanded = menuCategoriaAbierto,
-            onExpandedChange = { menuCategoriaAbierto = it }
-        ) {
-            OutlinedTextField(
-                value = edicion.categoria,
-                onValueChange = {},          // no se escribe: solo se elige de la lista
-                readOnly = true,
-                label = { Text("Categoría *") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuCategoriaAbierto)
-                },
-                isError = edicion.errores.categoria != null,
-                supportingText = {
-                    edicion.errores.categoria?.let { Text(it) }
-                },
-                modifier = Modifier
-                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
-            )
+        // Categoría: lista del catálogo (API) o texto manual si la API falla
+        SelectorCategoria(
+            categoria = edicion.categoria,
+            error = edicion.errores.categoria,
+            catalogo = catalogo,
+            onCategoriaChange = viewModel::onCategoriaChange,
+            onReintentar = catalogoViewModel::cargarCatalogo
+        )
 
-            ExposedDropdownMenu(
-                expanded = menuCategoriaAbierto,
-                onDismissRequest = { menuCategoriaAbierto = false }
-            ) {
-                CategoriasSolicitud.LISTA.forEach { categoria ->
-                    DropdownMenuItem(
-                        text = { Text(categoria) },
-                        onClick = {
-                            viewModel.onCategoriaChange(categoria)
-                            menuCategoriaAbierto = false
-                        }
-                    )
-                }
-            }
-        }
-
-        // Servicio relacionado (obligatorio o no según la categoría)
-        val servicioObligatorio = ValidadorSolicitud.servicioObligatorio(edicion.categoria)
+        // Servicio relacionado: texto libre y opcional
         OutlinedTextField(
             value = edicion.servicio,
             onValueChange = viewModel::onServicioChange,
-            label = {
-                Text(
-                    if (servicioObligatorio) "Servicio relacionado *"
-                    else "Servicio relacionado (opcional)"
-                )
-            },
-            singleLine = true,
-            isError = edicion.errores.servicio != null,
+            label = { Text("Servicio relacionado (opcional)") },
+            minLines = 3,
+            maxLines = 6,
             supportingText = {
-                edicion.errores.servicio?.let { Text(it) }
+                Text("Cuéntanos qué servicio o sitio se relaciona con la categoría elegida")
             },
             modifier = Modifier.fillMaxWidth()
         )

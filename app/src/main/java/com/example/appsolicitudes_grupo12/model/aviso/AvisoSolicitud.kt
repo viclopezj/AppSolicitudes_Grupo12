@@ -46,6 +46,11 @@ object Avisos {
         "Hay un nuevo comentario en tu solicitud $codigo."
     )
 
+    fun enProceso(codigo: String) = aviso(
+        DestinatarioAviso.CLIENTE,
+        "Tu solicitud $codigo está En proceso: el técnico comenzó a trabajar en ella."
+    )
+
     fun resuelta(codigo: String) = aviso(
         DestinatarioAviso.CLIENTE,
         "Tu solicitud $codigo fue resuelta. Confirma la resolución o pide reapertura."
@@ -61,6 +66,16 @@ object Avisos {
         "El cliente pidió reabrir la solicitud $codigo."
     )
 
+    fun eliminadaPorAdministrador(codigo: String) = aviso(
+        DestinatarioAviso.CLIENTE,
+        "El administrador eliminó tu solicitud $codigo."
+    )
+
+    fun referenciaCompartida(codigo: String) = aviso(
+        DestinatarioAviso.CLIENTE,
+        "La referencia de tu solicitud $codigo se compartió por WhatsApp."
+    )
+
     // Aviso que corresponde a un cambio de estado; null si ese cambio no avisa.
     fun porCambioDeEstado(
         codigo: String,
@@ -68,6 +83,7 @@ object Avisos {
         hasta: EstadoSolicitud
     ): AvisoSolicitud? = when {
         hasta == PENDIENTE_INFORMACION -> pendienteInformacion(codigo)
+        hasta == EN_PROCESO -> enProceso(codigo)
         hasta == RESUELTA -> resuelta(codigo)
         hasta == CERRADA -> cerrada(codigo)
         desde == RESUELTA && hasta == EN_REVISION -> reabierta(codigo)

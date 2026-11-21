@@ -209,7 +209,10 @@ fun LoginScreen(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Cliente demo · Admin admin · Técnico tecnico\nClave: 1234",
+                    text = "Clientes: demo, cliente2, cliente3\n" +
+                            "Administrador: admin\n" +
+                            "Técnicos: tecnico, tecnico2\n" +
+                            "Clave de todas: 1234",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaArchivos
+import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaInvalidaException
 import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudNoEncontradaException
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
@@ -54,7 +55,12 @@ class AvanceSolicitudViewModel(
     // La cámara terminó: se comprueba que la foto exista y se deja en el estado.
     fun onFotoTomada(archivo: File) {
         if (archivo.exists() && archivo.length() > 0) {
-            usarFoto(EvidenciaArchivos.aTexto(archivo))
+            if (EvidenciaArchivos.excedeTamano(archivo)) {
+                archivo.delete()
+                _estado.update { it.copy(error = EvidenciaArchivos.MENSAJE_TAMANO) }
+            } else {
+                usarFoto(EvidenciaArchivos.aTexto(archivo))
+            }
         } else {
             archivo.delete()
             _estado.update { it.copy(error = "No se pudo guardar la foto. Inténtalo de nuevo.") }
@@ -72,19 +78,20 @@ class AvanceSolicitudViewModel(
         _estado.update { it.copy(cargandoFoto = true, error = null) }
 
         viewModelScope.launch {
-            val archivo = withContext(Dispatchers.IO) {
+            val resultado = withContext(Dispatchers.IO) {
                 EvidenciaArchivos.copiarDeGaleria(contexto, uri)
             }
-            if (archivo != null) {
-                usarFoto(EvidenciaArchivos.aTexto(archivo))
-            } else {
-                _estado.update {
-                    it.copy(
-                        cargandoFoto = false,
-                        error = "No se pudo cargar la imagen. Prueba con otra."
-                    )
+            resultado
+                .onSuccess { archivo -> usarFoto(EvidenciaArchivos.aTexto(archivo)) }
+                .onFailure { error ->
+                    _estado.update {
+                        it.copy(
+                            cargandoFoto = false,
+                            error = (error as? EvidenciaInvalidaException)?.message
+                                ?: "No se pudo cargar la imagen. Prueba con otra."
+                        )
+                    }
                 }
-            }
         }
     }
 

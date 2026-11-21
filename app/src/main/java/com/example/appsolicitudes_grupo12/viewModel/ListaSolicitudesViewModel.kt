@@ -123,6 +123,11 @@ class ListaSolicitudesViewModel(
         _filtro.update { it.copy(responsableId = responsableId) }
     }
 
+    // Cambia el texto de la búsqueda.
+    fun onTextoChange(texto: String) {
+        _filtro.update { it.copy(texto = texto) }
+    }
+
     // Cambia el orden por fecha.
     fun onOrdenChange(orden: OrdenSolicitudes) {
         _filtro.update { it.copy(orden = orden) }
@@ -145,7 +150,8 @@ class ListaSolicitudesViewModel(
                     (filtro.estado == null || solicitud.estado == filtro.estado) &&
                     (filtro.prioridad == null || solicitud.prioridad == filtro.prioridad) &&
                     (filtro.clienteId == null || solicitud.creadoPorUsuarioId == filtro.clienteId) &&
-                    coincideResponsable(solicitud, filtro.responsableId)
+                    coincideResponsable(solicitud, filtro.responsableId) &&
+                    coincideTexto(solicitud, filtro.texto)
         }
 
         return when (filtro.orden) {
@@ -161,6 +167,18 @@ class ListaSolicitudesViewModel(
             FiltroSolicitudes.SIN_ASIGNAR -> solicitud.asignadoAUsuarioId == null
             else -> solicitud.asignadoAUsuarioId == responsableId
         }
+    }
+
+    // Sin texto no filtra. Busca en código, título, descripción y categoría, sin distinguir mayúsculas.
+    private fun coincideTexto(solicitud: SolicitudEntity, texto: String): Boolean {
+        val buscado = texto.trim()
+        if (buscado.isEmpty()) return true
+        return listOf(
+            solicitud.codigo,
+            solicitud.titulo,
+            solicitud.descripcion,
+            solicitud.categoria
+        ).any { it.contains(buscado, ignoreCase = true) }
     }
 
     // ---------- Fábrica ----------

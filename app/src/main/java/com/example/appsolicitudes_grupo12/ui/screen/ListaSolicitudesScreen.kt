@@ -61,6 +61,11 @@ import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 import com.example.appsolicitudes_grupo12.ui.components.ChipFiltro
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.LaunchedEffect
 
 // Pantalla con las solicitudes visibles para el usuario. Solo muestra el estado del ViewModel.
 // onAgregarClick: botón + (cliente). onSolicitudClick: recibe el id de la tarjeta tocada.
@@ -126,6 +131,10 @@ fun ListaSolicitudesScreen(
                     is ListaSolicitudesUiState.Success -> {
                         // Filtros arriba; debajo la lista o el aviso de "sin resultados"
                         Column(modifier = Modifier.fillMaxSize()) {
+                            CampoBusqueda(
+                                texto = actual.filtro.texto,
+                                onTextoChange = viewModel::onTextoChange
+                            )
                             FiltrosLista(
                                 filtro = actual.filtro,
                                 esAdministrador = rolUsuario == "administrador",
@@ -139,6 +148,7 @@ fun ListaSolicitudesScreen(
                                 onOrdenChange = viewModel::onOrdenChange,
                                 onLimpiar = viewModel::limpiarFiltros
                             )
+
 
                             if (actual.solicitudes.isEmpty()) {
                                 // Hay solicitudes guardadas, pero ninguna coincide con el filtro
@@ -245,6 +255,45 @@ private fun FiltrosLista(
             TextButton(onClick = onLimpiar) { Text("Quitar filtros") }
         }
     }
+}
+
+
+// Campo de búsqueda. Guarda el texto localmente para escribir sin saltos y avisa al ViewModel.
+// Si "Quitar filtros" borra el texto del filtro, el campo también se vacía.
+@Composable
+private fun CampoBusqueda(
+    texto: String,
+    onTextoChange: (String) -> Unit
+) {
+    var valor by remember { mutableStateOf(texto) }
+
+    LaunchedEffect(texto) {
+        if (texto.isEmpty() && valor.isNotEmpty()) valor = ""
+    }
+
+    OutlinedTextField(
+        value = valor,
+        onValueChange = {
+            valor = it
+            onTextoChange(it)
+        },
+        label = { Text("Buscar por código, título o descripción") },
+        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+        trailingIcon = {
+            if (valor.isNotEmpty()) {
+                IconButton(onClick = {
+                    valor = ""
+                    onTextoChange("")
+                }) {
+                    Icon(Icons.Default.Close, contentDescription = "Borrar búsqueda")
+                }
+            }
+        },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    )
 }
 
 // Loading: indicador de carga al centro.

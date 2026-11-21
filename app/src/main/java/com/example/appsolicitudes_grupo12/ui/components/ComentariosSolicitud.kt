@@ -25,17 +25,19 @@ import com.example.appsolicitudes_grupo12.model.data.local.ComentarioSolicitudEn
 @Composable
 fun ComentariosSolicitud(
     comentarios: List<ComentarioSolicitudEntity>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    titulo: String? = "Comentarios",
+    textoVacio: String = "Aún no hay comentarios."
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(text = "Comentarios", style = MaterialTheme.typography.titleMedium)
+        titulo?.let { Text(text = it, style = MaterialTheme.typography.titleMedium) }
 
         if (comentarios.isEmpty()) {
             Text(
-                text = "Aún no hay comentarios.",
+                text = textoVacio,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

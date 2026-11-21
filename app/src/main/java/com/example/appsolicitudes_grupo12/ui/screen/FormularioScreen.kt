@@ -71,13 +71,11 @@ import coil3.compose.AsyncImage
 import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaArchivos
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.solicitud.CategoriasSolicitud
-import com.example.appsolicitudes_grupo12.model.solicitud.ValidadorSolicitud
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
 import com.example.appsolicitudes_grupo12.ui.adaptive.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.ui.camera.CameraPermissionHelper
 import com.example.appsolicitudes_grupo12.ui.components.IconoError
 import com.example.appsolicitudes_grupo12.ui.components.ImagenQrSolicitud
-import com.example.appsolicitudes_grupo12.ui.components.SelectorServicio
 import com.example.appsolicitudes_grupo12.viewmodel.CatalogoViewModel
 import com.example.appsolicitudes_grupo12.viewmodel.FormularioViewModel
 import java.io.File
@@ -103,8 +101,6 @@ fun FormularioScreen(
 
     // Mensajes emergentes para errores de guardado y de la foto
     val snackbarHostState = remember { SnackbarHostState() }
-
-    var menuCategoriaAbierto by remember { mutableStateOf(false) }
 
     // Ruta del archivo donde la cámara escribe la foto. Se guarda como texto con rememberSaveable
     // para no perderla si la app se reinicia mientras la cámara está abierta.
@@ -243,55 +239,27 @@ fun FormularioScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Categoría (lista desplegable)
-                ExposedDropdownMenuBox(
-                    expanded = menuCategoriaAbierto,
-                    onExpandedChange = { menuCategoriaAbierto = it }
-                ) {
-                    OutlinedTextField(
-                        value = estado.categoria,
-                        onValueChange = {},          // no se escribe: solo se elige de la lista
-                        readOnly = true,
-                        label = { Text("Categoría *") },
-                        leadingIcon = {
-                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
-                        },
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = menuCategoriaAbierto)
-                        },
-                        isError = estado.errores.categoria != null,
-                        supportingText = {
-                            estado.errores.categoria?.let { Text(it) }
-                        },
-                        modifier = Modifier
-                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                            .fillMaxWidth()
-                    )
-
-                    ExposedDropdownMenu(
-                        expanded = menuCategoriaAbierto,
-                        onDismissRequest = { menuCategoriaAbierto = false }
-                    ) {
-                        CategoriasSolicitud.LISTA.forEach { categoria ->
-                            DropdownMenuItem(
-                                text = { Text(categoria) },
-                                onClick = {
-                                    viewModel.onCategoriaChange(categoria)
-                                    menuCategoriaAbierto = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Servicio relacionado: se elige del catálogo externo (obligatorio o no según la categoría)
-                SelectorServicio(
-                    servicio = estado.servicio,
-                    obligatorio = ValidadorSolicitud.servicioObligatorio(estado.categoria),
-                    error = estado.errores.servicio,
+                // Categoría: lista del catálogo (API) o texto manual si la API falla
+                SelectorCategoria(
+                    categoria = estado.categoria,
+                    error = estado.errores.categoria,
                     catalogo = catalogo,
-                    onServicioChange = viewModel::onServicioChange,
+                    onCategoriaChange = viewModel::onCategoriaChange,
                     onReintentar = catalogoViewModel::cargarCatalogo
+                )
+
+                // Servicio relacionado: texto libre y opcional, según la categoría elegida
+                OutlinedTextField(
+                    value = estado.servicio,
+                    onValueChange = viewModel::onServicioChange,
+                    label = { Text("Servicio relacionado (opcional)") },
+                    leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
+                    minLines = 3,
+                    maxLines = 6,
+                    supportingText = {
+                        Text("Cuéntanos qué servicio o sitio se relaciona con la categoría elegida")
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 // Evidencia (foto opcional)
