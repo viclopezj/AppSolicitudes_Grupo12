@@ -77,6 +77,7 @@ fun AppNavigation() {
             MenuScreen(
                 nombreUsuario = nombre,
                 rolUsuario = rol,
+                usuarioId = usuarioId,
                 windowSizeClass = windowSizeClass,
                 onIrALista = { navController.navigate(Rutas.lista(usuarioId, rol)) },
                 onIrAFormulario = {

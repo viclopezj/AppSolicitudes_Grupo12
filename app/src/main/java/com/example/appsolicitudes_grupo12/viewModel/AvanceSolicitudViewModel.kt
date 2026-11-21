@@ -141,7 +141,11 @@ class AvanceSolicitudViewModel(
                     // La foto ya quedó en el comentario: se limpia el formulario sin borrarla
                     _estado.value = AvanceUiState(
                         esInterno = actual.esInterno,
-                        mensaje = "Avance registrado."
+                        mensaje = if (rol == "administrador") {
+                            "Comentario registrado."
+                        } else {
+                            "Avance registrado."
+                        }
                     )
                     onExito()
                 }
@@ -149,7 +153,11 @@ class AvanceSolicitudViewModel(
                     val mensaje = when (error) {
                         is SolicitudNoEncontradaException -> "La solicitud ya no existe."
                         is TransicionNoPermitidaException ->
-                            "Ya no puedes registrar avances en este estado."
+                            if (rol == "administrador") {
+                                "Ya no puedes comentar en este estado."
+                            } else {
+                                "Ya no puedes registrar avances en este estado."
+                            }
 
                         else -> {
                             Log.e("AvanceSolicitudVM", "Error al registrar el avance", error)

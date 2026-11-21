@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
+import com.example.appsolicitudes_grupo12.model.solicitud.PlazosSolicitud
 import com.example.appsolicitudes_grupo12.state.FiltroSolicitudes
 import com.example.appsolicitudes_grupo12.state.ListaSolicitudesUiState
 import com.example.appsolicitudes_grupo12.state.OrdenSolicitudes
@@ -128,6 +129,11 @@ class ListaSolicitudesViewModel(
         _filtro.update { it.copy(texto = texto) }
     }
 
+    // Muestra solo las solicitudes atrasadas (true) o todas (false).
+    fun onSoloAtrasadasChange(soloAtrasadas: Boolean) {
+        _filtro.update { it.copy(soloAtrasadas = soloAtrasadas) }
+    }
+
     // Cambia el orden por fecha.
     fun onOrdenChange(orden: OrdenSolicitudes) {
         _filtro.update { it.copy(orden = orden) }
@@ -151,7 +157,8 @@ class ListaSolicitudesViewModel(
                     (filtro.prioridad == null || solicitud.prioridad == filtro.prioridad) &&
                     (filtro.clienteId == null || solicitud.creadoPorUsuarioId == filtro.clienteId) &&
                     coincideResponsable(solicitud, filtro.responsableId) &&
-                    coincideTexto(solicitud, filtro.texto)
+                    coincideTexto(solicitud, filtro.texto) &&
+                    (!filtro.soloAtrasadas || PlazosSolicitud.estaAtrasada(solicitud))
         }
 
         return when (filtro.orden) {

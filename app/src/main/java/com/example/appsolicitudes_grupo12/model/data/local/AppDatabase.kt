@@ -10,15 +10,18 @@ import androidx.sqlite.async.executeSQL
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 
 // Base de datos Room: conecta las tablas con sus DAO.
-// Versión 5: agrega la eliminación lógica de solicitudes (columna "eliminada").
+// Versión 6: agrega empresa y teléfono ficticios del cliente, los adjuntos de una solicitud
+// (imágenes y documentos) y el borrador del formulario.
 @Database(
     entities = [
         SolicitudEntity::class,
         UsuarioEntity::class,
         HistorialSolicitudEntity::class,
-        ComentarioSolicitudEntity::class
+        ComentarioSolicitudEntity::class,
+        AdjuntoEntity::class,
+        BorradorEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -27,6 +30,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun usuarioDao(): UsuarioDao
     abstract fun historialSolicitudDao(): HistorialSolicitudDao
     abstract fun comentarioSolicitudDao(): ComentarioSolicitudDao
+    abstract fun adjuntoDao(): AdjuntoDao
+    abstract fun borradorDao(): BorradorDao
 
     companion object {
 
@@ -40,7 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     "solicitudes_database"
                 )
-                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4, MIGRACION_4_5)
+                    .addMigrations(MIGRACION_2_3, MIGRACION_3_4, MIGRACION_4_5, MIGRACION_5_6)
                     // Room 3 exige indicar el driver de SQLite
                     .setDriver(BundledSQLiteDriver())
                     .build()
@@ -144,6 +149,57 @@ abstract class AppDatabase : RoomDatabase() {
             override suspend fun migrate(connection: SQLiteConnection) {
                 connection.executeSQL(
                     "ALTER TABLE solicitudes ADD COLUMN eliminada INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        // Migración 5 -> 6: empresa y teléfono ficticios en los usuarios (las cuentas de cliente de
+        // prueba ya creadas reciben sus datos), y las tablas nuevas de adjuntos y borradores.
+        // No se borra ningún dato.
+        private val MIGRACION_5_6 = object : Migration(5, 6) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                connection.executeSQL(
+                    "ALTER TABLE usuarios ADD COLUMN empresa TEXT NOT NULL DEFAULT ''"
+                )
+                connection.executeSQL(
+                    "ALTER TABLE usuarios ADD COLUMN telefono TEXT NOT NULL DEFAULT ''"
+                )
+                ContactosDemo.USUARIOS.forEach { nombreUsuario ->
+                    val contacto = ContactosDemo.de(nombreUsuario) ?: return@forEach
+                    connection.executeSQL(
+                        "UPDATE usuarios SET empresa = '${contacto.empresa}', " +
+                                "telefono = '${contacto.telefono}' " +
+                                "WHERE nombreUsuario = '$nombreUsuario'"
+                    )
+                }
+
+                // Imágenes y documentos adicionales de cada solicitud
+                connection.executeSQL(
+                    "CREATE TABLE IF NOT EXISTS adjuntos_solicitud (" +
+                            "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "solicitudId INTEGER NOT NULL, " +
+                            "usuarioId INTEGER NOT NULL, " +
+                            "usuarioNombre TEXT NOT NULL, " +
+                            "nombre TEXT NOT NULL, " +
+                            "tipo TEXT NOT NULL, " +
+                            "uri TEXT NOT NULL, " +
+                            "fecha INTEGER NOT NULL)"
+                )
+                connection.executeSQL(
+                    "CREATE INDEX IF NOT EXISTS index_adjuntos_solicitud_solicitudId " +
+                            "ON adjuntos_solicitud (solicitudId)"
+                )
+
+                // Borrador del formulario (uno por cliente)
+                connection.executeSQL(
+                    "CREATE TABLE IF NOT EXISTS borradores_solicitud (" +
+                            "usuarioId INTEGER NOT NULL, " +
+                            "titulo TEXT NOT NULL, " +
+                            "descripcion TEXT NOT NULL, " +
+                            "categoria TEXT NOT NULL, " +
+                            "servicio TEXT NOT NULL, " +
+                            "fecha INTEGER NOT NULL, " +
+                            "PRIMARY KEY(usuarioId))"
                 )
             }
         }

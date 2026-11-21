@@ -27,18 +27,13 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -74,8 +69,10 @@ import com.example.appsolicitudes_grupo12.model.solicitud.CategoriasSolicitud
 import com.example.appsolicitudes_grupo12.ui.adaptive.AppWindowSizeClass
 import com.example.appsolicitudes_grupo12.ui.adaptive.adaptiveContentWidth
 import com.example.appsolicitudes_grupo12.ui.camera.CameraPermissionHelper
+import com.example.appsolicitudes_grupo12.ui.components.AdjuntosFormulario
 import com.example.appsolicitudes_grupo12.ui.components.IconoError
 import com.example.appsolicitudes_grupo12.ui.components.ImagenQrSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.SelectorCategoria
 import com.example.appsolicitudes_grupo12.viewmodel.CatalogoViewModel
 import com.example.appsolicitudes_grupo12.viewmodel.FormularioViewModel
 import java.io.File
@@ -159,6 +156,22 @@ fun FormularioScreen(
         }
     }
 
+    // Muestra el error del adjunto y luego lo descarta
+    LaunchedEffect(estado.errorAdjunto) {
+        estado.errorAdjunto?.let { mensaje ->
+            snackbarHostState.showSnackbar(mensaje)
+            viewModel.descartarErrorAdjunto()
+        }
+    }
+
+    // Muestra los avisos del borrador (guardado, recuperado o descartado) y luego los descarta
+    LaunchedEffect(estado.mensaje) {
+        estado.mensaje?.let { mensaje ->
+            snackbarHostState.showSnackbar(mensaje)
+            viewModel.descartarMensaje()
+        }
+    }
+
     // Aviso de éxito con el código y el QR
     val solicitudCreada = estado.solicitudCreada
     if (estado.guardadoExitosamente && solicitudCreada != null) {
@@ -203,6 +216,24 @@ fun FormularioScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+
+                // Datos de contacto ficticios del cliente (solo lectura)
+                if (estado.empresa.isNotBlank() || estado.telefono.isNotBlank()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Datos de contacto (ficticios)",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = "Empresa: ${estado.empresa.ifBlank { "No indicada" }}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "Teléfono: ${estado.telefono.ifBlank { "No indicado" }}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
 
                 // Título
                 OutlinedTextField(
@@ -348,10 +379,38 @@ fun FormularioScreen(
                     )
                 }
 
-                // Botón Registrar (se desactiva mientras guarda o copia una foto)
+                // Imágenes y documentos adicionales (opcionales)
+                AdjuntosFormulario(
+                    adjuntos = estado.adjuntos,
+                    cargando = estado.cargandoAdjunto,
+                    habilitado = !estado.guardando,
+                    onElegir = viewModel::onAdjuntoElegido,
+                    onQuitar = viewModel::quitarAdjunto
+                )
+
+                // Borrador: guarda el texto para seguir después (sin validar)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = viewModel::guardarBorrador,
+                        enabled = !estado.guardando,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Guardar borrador")
+                    }
+                    if (estado.hayBorrador) {
+                        TextButton(
+                            onClick = viewModel::descartarBorrador,
+                            enabled = !estado.guardando
+                        ) {
+                            Text("Descartar borrador")
+                        }
+                    }
+                }
+
+                // Botón Registrar (se desactiva mientras guarda o copia una foto o un archivo)
                 Button(
                     onClick = { viewModel.guardar() },
-                    enabled = !estado.guardando && !estado.cargandoFoto,
+                    enabled = !estado.guardando && !estado.cargandoFoto && !estado.cargandoAdjunto,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (estado.guardando) {

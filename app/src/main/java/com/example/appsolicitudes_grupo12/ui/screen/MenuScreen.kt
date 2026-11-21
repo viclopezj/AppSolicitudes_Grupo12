@@ -52,6 +52,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.appsolicitudes_grupo12.viewmodel.MenuViewModel
+import com.example.appsolicitudes_grupo12.ui.components.etiquetaRol
 
 // Pantalla de inicio tras el login, con menú lateral y accesos rápidos según el perfil.
 // Solo muestra opciones y avisa qué se pulsó: la navegación le entrega las funciones.
@@ -62,6 +66,10 @@ import androidx.core.content.ContextCompat
 fun MenuScreen(
     nombreUsuario: String,
     rolUsuario: String,
+    usuarioId: Int = -1,
+    menuViewModel: MenuViewModel = viewModel(
+        factory = MenuViewModel.factory(LocalContext.current, usuarioId, rolUsuario)
+    ),
     windowSizeClass: AppWindowSizeClass = AppWindowSizeClass.Compact,
     onIrALista: () -> Unit = {},
     onIrAFormulario: () -> Unit = {},
@@ -70,6 +78,9 @@ fun MenuScreen(
     onCerrarSesion: () -> Unit = {}
 ) {
     val estadoMenu = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    // Solicitudes atrasadas (administrador y técnico). El aviso local lo publica el ViewModel.
+    val atrasadas by menuViewModel.atrasadas.collectAsState()
 
     // Abrir y cerrar el menú es una animación: se hace dentro de una corrutina
     val alcance = rememberCoroutineScope()
@@ -245,6 +256,23 @@ fun MenuScreen(
                                     )
                                     .padding(horizontal = 12.dp, vertical = 7.dp)
                             )
+                            if (atrasadas > 0) {
+                                Text(
+                                    text = if (rolUsuario == "administrador") {
+                                        "Solicitudes atrasadas: $atrasadas"
+                                    } else {
+                                        "Tienes $atrasadas solicitud(es) atrasada(s)"
+                                    },
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier
+                                        .background(
+                                            MaterialTheme.colorScheme.errorContainer,
+                                            MaterialTheme.shapes.small
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 7.dp)
+                                )
+                            }
                             Text(
                                 text = "¿Qué quieres hacer?",
                                 style = MaterialTheme.typography.bodyLarge,
@@ -311,11 +339,4 @@ fun MenuScreen(
             contenidoPrincipal()
         }
     }
-}
-
-private fun etiquetaRol(rol: String): String = when (rol) {
-    "administrador" -> "Administrador"
-    "tecnico" -> "Técnico"
-    "cliente" -> "Cliente"
-    else -> "Sin perfil"
 }

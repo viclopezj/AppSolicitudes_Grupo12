@@ -6,9 +6,9 @@ import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud.*
 // No usa la base de datos, por eso se puede probar sola.
 object ReglasTransicion {
 
-    private const val CLIENTE = "cliente"
-    private const val ADMINISTRADOR = "administrador"
-    private const val TECNICO = "tecnico"
+    private const val CLIENTE = Roles.CLIENTE
+    private const val ADMINISTRADOR = Roles.ADMINISTRADOR
+    private const val TECNICO = Roles.TECNICO
 
     // Una regla: desde cualquiera de estos estados, hasta este estado, lo pueden hacer estos perfiles.
     private class Regla(
@@ -90,11 +90,25 @@ object ReglasTransicion {
         return rol == TECNICO && estado == EN_PROCESO
     }
 
+    // Comentarios de seguimiento del administrador: en cualquier estado menos los finales.
+    // El técnico comenta con "Registrar avance" (solo En proceso) y el cliente al responder.
+    fun puedeComentar(rol: String, estado: EstadoSolicitud): Boolean {
+        return rol == ADMINISTRADOR && estado != CERRADA && estado != CANCELADA
+    }
+
     // Editar datos: cliente y administrador, solo antes de asignar la solicitud.
     fun puedeEditar(rol: String, estado: EstadoSolicitud): Boolean {
         return (rol == CLIENTE || rol == ADMINISTRADOR) &&
                 (estado == RECIBIDA || estado == EN_REVISION || estado == PENDIENTE_INFORMACION)
     }
+
+    // Adjuntar documentos o imágenes: igual que editar (cliente y administrador, antes de asignar).
+    // El técnico deja su evidencia con "Registrar avance".
+    fun puedeAdjuntar(rol: String, estado: EstadoSolicitud): Boolean {
+        return puedeEditar(rol, estado)
+    }
+
+
 
     // Eliminar (lógicamente): cliente y administrador, solo si está Cerrada o Cancelada.
     // Que el cliente solo elimine las suyas lo garantiza la consulta por id del DAO.

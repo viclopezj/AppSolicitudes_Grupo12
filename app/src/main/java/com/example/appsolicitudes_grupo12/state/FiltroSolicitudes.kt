@@ -16,12 +16,14 @@ data class FiltroSolicitudes(
     val responsableId: Int? = null,
     // Texto de la búsqueda (vacío = sin buscar)
     val texto: String = "",
+    // true = solo las solicitudes con el plazo vencido (ver PlazosSolicitud)
+    val soloAtrasadas: Boolean = false,
     val orden: OrdenSolicitudes = OrdenSolicitudes.RECIENTES
 ) {
     // True si hay algún filtro activo (el orden no cuenta)
     val hayFiltros: Boolean
         get() = categoria != null || estado != null || prioridad != null ||
-                clienteId != null || responsableId != null || texto.isNotBlank()
+                clienteId != null || responsableId != null || texto.isNotBlank() || soloAtrasadas
 
     companion object {
         const val SIN_ASIGNAR = -1

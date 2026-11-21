@@ -13,3 +13,4 @@
 .externalNativeBuild
 .cxx
 local.properties
+# La clave de firma (app/keystore/solicitudes.jks) SÍ se sube: lo exige el encargo

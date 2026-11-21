@@ -77,11 +77,47 @@ class ReglasTransicionTest : FunSpec({
         ReglasTransicion.puedeEditar(cliente, RESUELTA) shouldBe false
         ReglasTransicion.puedeEditar(tecnico, RECIBIDA) shouldBe false
 
+        // Comentario de seguimiento: solo el administrador y no en estados finales
+        ReglasTransicion.puedeComentar(admin, RECIBIDA) shouldBe true
+        ReglasTransicion.puedeComentar(admin, RESUELTA) shouldBe true
+        ReglasTransicion.puedeComentar(admin, CERRADA) shouldBe false
+        ReglasTransicion.puedeComentar(admin, CANCELADA) shouldBe false
+        ReglasTransicion.puedeComentar(cliente, RECIBIDA) shouldBe false
+        ReglasTransicion.puedeComentar(tecnico, EN_PROCESO) shouldBe false
+
         // Eliminación lógica: solo Cerrada o Cancelada, y nunca el técnico
         ReglasTransicion.puedeEliminar(cliente, CERRADA) shouldBe true
         ReglasTransicion.puedeEliminar(admin, CANCELADA) shouldBe true
         ReglasTransicion.puedeEliminar(cliente, RESUELTA) shouldBe false
         ReglasTransicion.puedeEliminar(admin, EN_PROCESO) shouldBe false
         ReglasTransicion.puedeEliminar(tecnico, CERRADA) shouldBe false
+
+        // Adjuntar documentos: igual que editar, y nunca el técnico
+        ReglasTransicion.puedeAdjuntar(cliente, PENDIENTE_INFORMACION) shouldBe true
+        ReglasTransicion.puedeAdjuntar(admin, RECIBIDA) shouldBe true
+        ReglasTransicion.puedeAdjuntar(cliente, EN_PROCESO) shouldBe false
+        ReglasTransicion.puedeAdjuntar(tecnico, RECIBIDA) shouldBe false
+    }
+
+    test("una solicitud está atrasada solo si sigue en manos del equipo y venció el plazo de su prioridad") {
+        val dia = PlazosSolicitud.DIA_MS
+        val ahora = 100 * dia
+
+        // Prioridad Media = 5 días: a los 6 días de creada está atrasada, a los 4 no
+        PlazosSolicitud.estaAtrasada("En proceso", "Media", ahora - 6 * dia, ahora) shouldBe true
+        PlazosSolicitud.estaAtrasada("En proceso", "Media", ahora - 4 * dia, ahora) shouldBe false
+        // Urgente = 1 día; Baja = 7 días
+        PlazosSolicitud.estaAtrasada("Recibida", "Urgente", ahora - 2 * dia, ahora) shouldBe true
+        PlazosSolicitud.estaAtrasada("Recibida", "Baja", ahora - 6 * dia, ahora) shouldBe false
+        // Pendiente de información, Resuelta, Cerrada y Cancelada nunca se consideran atrasadas
+        PlazosSolicitud.estaAtrasada("Pendiente de información", "Urgente", ahora - 30 * dia, ahora) shouldBe false
+        PlazosSolicitud.estaAtrasada("Resuelta", "Urgente", ahora - 30 * dia, ahora) shouldBe false
+        PlazosSolicitud.estaAtrasada("Cerrada", "Urgente", ahora - 30 * dia, ahora) shouldBe false
+        PlazosSolicitud.estaAtrasada("Cancelada", "Urgente", ahora - 30 * dia, ahora) shouldBe false
+
+        // Medición simulada: abierta cuenta hasta ahora; terminada, hasta su último cambio
+        MedicionTiempos.tiempoTranscurridoMs("Asignada", 0L, 10L, 50L) shouldBe 50L
+        MedicionTiempos.tiempoTranscurridoMs("Cerrada", 0L, 10L, 50L) shouldBe 10L
+        MedicionTiempos.formatear(26 * 60 * 60 * 1000L) shouldBe "1 d 2 h"
     }
 })

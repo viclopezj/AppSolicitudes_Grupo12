@@ -1,5 +1,6 @@
 package com.example.appsolicitudes_grupo12.model.data.repository
 
+import com.example.appsolicitudes_grupo12.model.data.local.ContactosDemo
 import com.example.appsolicitudes_grupo12.model.data.local.UsuarioDao
 import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import kotlinx.coroutines.CancellationException
@@ -32,13 +33,26 @@ class AuthRepository(private val dao: UsuarioDao) {
 
     // Cuentas ficticias de prueba: 3 clientes, 1 administrador y 2 técnicos (clave 1234).
     private val usuariosDemo = listOf(
-        UsuarioEntity(nombreUsuario = "demo", contrasena = "1234", nombre = "Cliente Demo", rol = "cliente"),
-        UsuarioEntity(nombreUsuario = "cliente2", contrasena = "1234", nombre = "Cliente Dos", rol = "cliente"),
-        UsuarioEntity(nombreUsuario = "cliente3", contrasena = "1234", nombre = "Cliente Tres", rol = "cliente"),
+        clienteDemo("demo", "Cliente Demo"),
+        clienteDemo("cliente2", "Cliente Dos"),
+        clienteDemo("cliente3", "Cliente Tres"),
         UsuarioEntity(nombreUsuario = "admin", contrasena = "1234", nombre = "Administradora Demo", rol = "administrador"),
         UsuarioEntity(nombreUsuario = "tecnico", contrasena = "1234", nombre = "Técnico Demo", rol = "tecnico"),
         UsuarioEntity(nombreUsuario = "tecnico2", contrasena = "1234", nombre = "Técnico Dos", rol = "tecnico")
     )
+
+    // Cliente de prueba con su empresa y teléfono ficticios (ContactosDemo).
+    private fun clienteDemo(nombreUsuario: String, nombre: String): UsuarioEntity {
+        val contacto = ContactosDemo.de(nombreUsuario)
+        return UsuarioEntity(
+            nombreUsuario = nombreUsuario,
+            contrasena = "1234",
+            nombre = nombre,
+            rol = "cliente",
+            empresa = contacto?.empresa.orEmpty(),
+            telefono = contacto?.telefono.orEmpty()
+        )
+    }
 
     // Crea las cuentas de prueba que todavía no existan.
     private suspend fun crearUsuariosDemoSiHaceFalta() {

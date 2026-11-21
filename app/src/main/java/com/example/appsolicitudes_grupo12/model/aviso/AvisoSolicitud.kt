@@ -71,6 +71,22 @@ object Avisos {
         "El administrador eliminó tu solicitud $codigo."
     )
 
+    // Aviso de solicitudes atrasadas (plazo vencido). Al administrador le llega el total;
+    // al técnico, las que tiene asignadas.
+    fun atrasadasParaAdministrador(cantidad: Int) = aviso(
+        DestinatarioAviso.ADMINISTRADOR,
+        "Hay ${solicitudesAtrasadas(cantidad)}. Revisa el panel resumen."
+    )
+
+    fun atrasadasParaTecnico(cantidad: Int) = aviso(
+        DestinatarioAviso.TECNICO,
+        "Tienes ${solicitudesAtrasadas(cantidad)} asignada${if (cantidad == 1) "" else "s"}."
+    )
+
+    private fun solicitudesAtrasadas(cantidad: Int): String {
+        return if (cantidad == 1) "1 solicitud atrasada" else "$cantidad solicitudes atrasadas"
+    }
+
     fun referenciaCompartida(codigo: String) = aviso(
         DestinatarioAviso.CLIENTE,
         "La referencia de tu solicitud $codigo se compartió por WhatsApp."

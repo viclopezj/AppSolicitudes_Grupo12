@@ -9,7 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaArchivos
 import com.example.appsolicitudes_grupo12.model.data.files.EvidenciaInvalidaException
 import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
+import com.example.appsolicitudes_grupo12.model.data.repository.BorradorRepository
 import com.example.appsolicitudes_grupo12.model.data.repository.SolicitudRepository
+import com.example.appsolicitudes_grupo12.model.solicitud.AdjuntoPendiente
 import com.example.appsolicitudes_grupo12.model.solicitud.ValidadorSolicitud
 import com.example.appsolicitudes_grupo12.state.FormularioErrores
 import com.example.appsolicitudes_grupo12.state.FormularioUiState
@@ -23,10 +25,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-// ViewModel del formulario: guarda el estado, valida los datos, maneja la foto y pide el guardado.
-// "contexto" solo se usa para crear y copiar los archivos de las fotos.
+// ViewModel del formulario: guarda el estado, valida los datos, maneja la foto, los adjuntos y el
+// borrador, y pide el guardado. "contexto" solo se usa para crear y copiar los archivos.
 class FormularioViewModel(
     private val repositorio: SolicitudRepository,
+    private val borradores: BorradorRepository,
     private val contexto: Context,
     private val usuarioId: Int,
     private val rol: String
@@ -34,6 +37,168 @@ class FormularioViewModel(
 
     private val _estado = MutableStateFlow(FormularioUiState())
     val estado: StateFlow<FormularioUiState> = _estado.asStateFlow()
+
+    init {
+        if (usuarioId > 0 && rol == "cliente") {
+            cargarBorrador()
+            cargarContacto()
+        }
+    }
+
+    // ---------- Borrador y datos de contacto ----------
+
+    // Si el cliente dejó un borrador guardado, rellena los campos con él.
+    private fun cargarBorrador() {
+        viewModelScope.launch {
+            borradores.obtener(usuarioId)
+                .onSuccess { borrador ->
+                    if (borrador != null) {
+                        _estado.update {
+                            it.copy(
+                                titulo = borrador.titulo,
+                                descripcion = borrador.descripcion,
+                                categoria = borrador.categoria,
+                                servicio = borrador.servicio,
+                                hayBorrador = true,
+                                mensaje = "Se recuperó tu borrador."
+                            )
+                        }
+                    }
+                }
+                .onFailure { Log.e("FormularioViewModel", "Error al leer el borrador", it) }
+        }
+    }
+
+    // Empresa y teléfono ficticios del cliente (se muestran como datos de contacto).
+    private fun cargarContacto() {
+        viewModelScope.launch {
+            repositorio.obtenerUsuario(usuarioId)
+                .onSuccess { usuario ->
+                    if (usuario != null) {
+                        _estado.update {
+                            it.copy(empresa = usuario.empresa, telefono = usuario.telefono)
+                        }
+                    }
+                }
+                .onFailure { Log.e("FormularioViewModel", "Error al leer los datos del cliente", it) }
+        }
+    }
+
+    // Guarda el texto del formulario como borrador (sin validar). Las fotos y los archivos no se guardan.
+    fun guardarBorrador() {
+        if (usuarioId <= 0 || rol != "cliente") return
+        val datos = _estado.value
+        if (datos.guardando) return
+
+        if (datos.titulo.isBlank() && datos.descripcion.isBlank() &&
+            datos.categoria.isBlank() && datos.servicio.isBlank()
+        ) {
+            _estado.update { it.copy(mensaje = "Escribe algo para guardar el borrador.") }
+            return
+        }
+
+        viewModelScope.launch {
+            borradores.guardar(
+                usuarioId = usuarioId,
+                titulo = datos.titulo,
+                descripcion = datos.descripcion,
+                categoria = datos.categoria,
+                servicio = datos.servicio
+            )
+                .onSuccess {
+                    _estado.update {
+                        it.copy(
+                            hayBorrador = true,
+                            mensaje = "Borrador guardado (solo el texto; las fotos y los archivos no se guardan)."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    Log.e("FormularioViewModel", "Error al guardar el borrador", error)
+                    _estado.update {
+                        it.copy(errorGuardado = "No se pudo guardar el borrador. Inténtalo de nuevo.")
+                    }
+                }
+        }
+    }
+
+    // Borra el borrador guardado y vacía los campos de texto.
+    fun descartarBorrador() {
+        viewModelScope.launch {
+            borradores.eliminar(usuarioId)
+                .onSuccess {
+                    _estado.update {
+                        it.copy(
+                            titulo = "",
+                            descripcion = "",
+                            categoria = "",
+                            servicio = "",
+                            errores = FormularioErrores(),
+                            hayBorrador = false,
+                            mensaje = "Borrador descartado."
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    Log.e("FormularioViewModel", "Error al descartar el borrador", error)
+                    _estado.update {
+                        it.copy(errorGuardado = "No se pudo descartar el borrador. Inténtalo de nuevo.")
+                    }
+                }
+        }
+    }
+
+    // Quita el aviso breve cuando ya se mostró.
+    fun descartarMensaje() {
+        _estado.update { it.copy(mensaje = null) }
+    }
+
+    // ---------- Imágenes y documentos adicionales ----------
+
+    // La persona eligió un archivo: se copia a la app en segundo plano y se suma a la lista.
+    fun onAdjuntoElegido(uri: Uri) {
+        val actual = _estado.value
+        if (actual.cargandoAdjunto) return
+        if (actual.adjuntos.size >= EvidenciaArchivos.MAXIMO_ADJUNTOS) {
+            _estado.update { it.copy(errorAdjunto = EvidenciaArchivos.MENSAJE_MAXIMO_ADJUNTOS) }
+            return
+        }
+
+        _estado.update { it.copy(cargandoAdjunto = true, errorAdjunto = null) }
+
+        viewModelScope.launch {
+            val resultado = withContext(Dispatchers.IO) {
+                EvidenciaArchivos.copiarAdjunto(contexto, uri)
+            }
+
+            resultado
+                .onSuccess { adjunto ->
+                    _estado.update {
+                        it.copy(adjuntos = it.adjuntos + adjunto, cargandoAdjunto = false)
+                    }
+                }
+                .onFailure { error ->
+                    _estado.update {
+                        it.copy(
+                            cargandoAdjunto = false,
+                            errorAdjunto = (error as? EvidenciaInvalidaException)?.message
+                                ?: "No se pudo cargar el archivo. Prueba con otro."
+                        )
+                    }
+                }
+        }
+    }
+
+    // Quita un archivo de la lista y borra su copia.
+    fun quitarAdjunto(adjunto: AdjuntoPendiente) {
+        EvidenciaArchivos.borrar(adjunto.uri)
+        _estado.update { it.copy(adjuntos = it.adjuntos - adjunto, errorAdjunto = null) }
+    }
+
+    // Quita el error del adjunto cuando ya se mostró.
+    fun descartarErrorAdjunto() {
+        _estado.update { it.copy(errorAdjunto = null) }
+    }
 
     // ---------- Eventos de los campos ----------
     // Cada función actualiza el valor y borra el error de ese campo.
@@ -58,7 +223,6 @@ class FormularioViewModel(
 
     fun onServicioChange(valor: String) {
         _estado.update { it.copy(servicio = valor) }
-    }
     }
 
     // ---------- Eventos de la foto de evidencia ----------
@@ -176,7 +340,7 @@ class FormularioViewModel(
         }
 
         // Evita guardar dos veces o mientras se copia una foto
-        if (_estado.value.guardando || _estado.value.cargandoFoto) return
+        if (_estado.value.guardando || _estado.value.cargandoFoto || _estado.value.cargandoAdjunto) return
         if (!validarFormulario()) return
 
         _estado.update { it.copy(guardando = true, errorGuardado = null) }
@@ -190,15 +354,19 @@ class FormularioViewModel(
                 categoria = datos.categoria,
                 servicio = datos.servicio,
                 creadorUsuarioId = usuarioId,
-                evidenciaUri = datos.evidenciaUri
+                evidenciaUri = datos.evidenciaUri,
+                adjuntos = datos.adjuntos
             )
                 .onSuccess { solicitud ->
+                    // Ya quedó registrada: el borrador deja de servir
+                    borradores.eliminar(usuarioId)
                     // Se guarda la solicitud creada para mostrar su código y su QR
                     _estado.update { estadoActual ->
                         estadoActual.copy(
                             guardando = false,
                             guardadoExitosamente = true,
-                            solicitudCreada = solicitud
+                            solicitudCreada = solicitud,
+                            hayBorrador = false
                         )
                     }
                 }
@@ -216,9 +384,10 @@ class FormularioViewModel(
 
     // ---------- Utilidades para la pantalla ----------
 
-    // Deja el formulario vacío. La foto NO se borra: ya quedó asociada a la solicitud.
+    // Deja el formulario vacío. La foto y los adjuntos NO se borran: ya quedaron asociados a la solicitud.
     fun reiniciarFormulario() {
-        _estado.value = FormularioUiState()
+        val actual = _estado.value
+        _estado.value = FormularioUiState(empresa = actual.empresa, telefono = actual.telefono)
     }
 
     // Quita el mensaje de error de guardado.
@@ -231,6 +400,7 @@ class FormularioViewModel(
         val actual = _estado.value
         if (!actual.guardadoExitosamente) {
             EvidenciaArchivos.borrar(actual.evidenciaUri)
+            actual.adjuntos.forEach { EvidenciaArchivos.borrar(it.uri) }
         }
         super.onCleared()
     }
@@ -247,6 +417,7 @@ class FormularioViewModel(
                     val baseDatos = AppDatabase.getDatabase(appContext)
                     return FormularioViewModel(
                         SolicitudRepository(baseDatos, notificador = NotificadorAndroid(appContext)),
+                        BorradorRepository(baseDatos.borradorDao()),
                         appContext, usuarioId, rol
                     ) as T
                 }

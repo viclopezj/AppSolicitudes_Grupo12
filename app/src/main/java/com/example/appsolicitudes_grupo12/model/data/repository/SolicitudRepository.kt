@@ -1,6 +1,8 @@
 package com.example.appsolicitudes_grupo12.model.data.repository
 
 import androidx.room3.withWriteTransaction
+import com.example.appsolicitudes_grupo12.model.data.local.AdjuntoDao
+import com.example.appsolicitudes_grupo12.model.data.local.AdjuntoEntity
 import com.example.appsolicitudes_grupo12.model.data.local.AppDatabase
 import com.example.appsolicitudes_grupo12.model.data.local.ComentarioSolicitudDao
 import com.example.appsolicitudes_grupo12.model.data.local.ComentarioSolicitudEntity
@@ -9,18 +11,24 @@ import com.example.appsolicitudes_grupo12.model.data.local.HistorialSolicitudEnt
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudDao
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
 import com.example.appsolicitudes_grupo12.model.data.local.UsuarioDao
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
+import com.example.appsolicitudes_grupo12.model.solicitud.AdjuntoPendiente
+import com.example.appsolicitudes_grupo12.model.solicitud.PlazosSolicitud
 import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 import com.example.appsolicitudes_grupo12.model.solicitud.ReglasTransicion
+import com.example.appsolicitudes_grupo12.model.solicitud.Roles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
 import com.example.appsolicitudes_grupo12.model.aviso.AvisoSolicitud
 import com.example.appsolicitudes_grupo12.model.aviso.Avisos
 import com.example.appsolicitudes_grupo12.model.aviso.Notificador
 import com.example.appsolicitudes_grupo12.model.aviso.NotificadorNulo
 import kotlinx.coroutines.flow.flow
 import java.util.UUID
+
 
 // La solicitud buscada no existe o el usuario no tiene acceso (distinto de un fallo técnico).
 class SolicitudNoEncontradaException : Exception("La solicitud no existe")
@@ -39,6 +47,7 @@ class SolicitudRepository(
     private val historialDao: HistorialSolicitudDao = db.historialSolicitudDao(),
     private val comentarioDao: ComentarioSolicitudDao = db.comentarioSolicitudDao(),
     private val usuarioDao: UsuarioDao = db.usuarioDao(),
+    private val adjuntoDao: AdjuntoDao = db.adjuntoDao(),
     private val notificador: Notificador = NotificadorNulo
 ) {
 
@@ -113,6 +122,30 @@ class SolicitudRepository(
         }
     }
 
+    // Adjuntos (imágenes y documentos) de una solicitud. Vacío si no hay acceso.
+    fun obtenerAdjuntos(
+        solicitudId: Int,
+        usuarioId: Int,
+        rol: String
+    ): Flow<List<AdjuntoEntity>> = flow {
+        if (dao.obtenerPorId(solicitudId, usuarioId, rol) != null) {
+            emitAll(adjuntoDao.obtenerPorSolicitud(solicitudId))
+        } else {
+            emit(emptyList())
+        }
+    }
+
+    // Datos de un usuario (el detalle muestra la empresa y el teléfono ficticios del cliente).
+    suspend fun obtenerUsuario(usuarioId: Int): Result<UsuarioEntity?> {
+        return try {
+            Result.success(usuarioDao.buscarPorId(usuarioId))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     // ---------- Escritura ----------
 
     // Crea la solicitud con código único, fecha y estado inicial, y deja su primer registro de historial.
@@ -123,7 +156,8 @@ class SolicitudRepository(
         categoria: String,
         servicio: String,
         creadorUsuarioId: Int,
-        evidenciaUri: String? = null
+        evidenciaUri: String? = null,
+        adjuntos: List<AdjuntoPendiente> = emptyList()
     ): Result<SolicitudEntity> {
         return enTransaccion {
             val ahora = System.currentTimeMillis()
@@ -150,6 +184,22 @@ class SolicitudRepository(
                 rol = ROL_CLIENTE,
                 fecha = ahora
             )
+
+            // Imágenes y documentos adicionales: se guardan junto con la solicitud
+            val nombreCreador = nombreDe(creadorUsuarioId)
+            adjuntos.forEach { adjunto ->
+                adjuntoDao.insertar(
+                    AdjuntoEntity(
+                        solicitudId = idNuevo,
+                        usuarioId = creadorUsuarioId,
+                        usuarioNombre = nombreCreador,
+                        nombre = adjunto.nombre,
+                        tipo = adjunto.tipo,
+                        uri = adjunto.uri,
+                        fecha = ahora
+                    )
+                )
+            }
             solicitud.copy(id = idNuevo)
         }.avisar { Avisos.nuevaSolicitud(it.codigo) }
     }
@@ -462,13 +512,17 @@ class SolicitudRepository(
             val solicitud = dao.obtenerPorId(id, usuarioId, rol)
                 ?: throw SolicitudNoEncontradaException()
 
-            // El técnico solo registra avances mientras trabaja la solicitud
-            if (rol == ROL_TECNICO) {
+            // El técnico solo registra avances mientras trabaja la solicitud;
+            // el administrador comenta mientras no esté Cerrada ni Cancelada
+            if (rol == ROL_TECNICO || rol == ROL_ADMINISTRADOR) {
                 val estadoActual = EstadoSolicitud.desdeTexto(solicitud.estado)
                     ?: throw TransicionNoPermitidaException()
-                if (!ReglasTransicion.puedeRegistrarAvance(rol, estadoActual)) {
-                    throw TransicionNoPermitidaException()
+                val permitido = if (rol == ROL_TECNICO) {
+                    ReglasTransicion.puedeRegistrarAvance(rol, estadoActual)
+                } else {
+                    ReglasTransicion.puedeComentar(rol, estadoActual)
                 }
+                if (!permitido) throw TransicionNoPermitidaException()
             }
 
             val interno = esInterno && rol != ROL_CLIENTE
@@ -495,6 +549,75 @@ class SolicitudRepository(
             // Solo el comentario visible del técnico avisa al cliente
             if (!interno && rol == ROL_TECNICO) Avisos.nuevoComentario(solicitud.codigo) else null
         }.avisar { it }.map { }
+    }
+
+    // Agrega una imagen o un documento a una solicitud existente. Cliente (la suya) y administrador,
+    // solo en los estados donde también se puede editar. Queda una línea en el historial.
+    suspend fun agregarAdjunto(
+        id: Int,
+        usuarioId: Int,
+        rol: String,
+        adjunto: AdjuntoPendiente
+    ): Result<Unit> {
+        return enTransaccion<Unit> {
+            val solicitud = dao.obtenerPorId(id, usuarioId, rol)
+                ?: throw SolicitudNoEncontradaException()
+            val estado = EstadoSolicitud.desdeTexto(solicitud.estado)
+            if (estado == null || !ReglasTransicion.puedeAdjuntar(rol, estado)) {
+                throw TransicionNoPermitidaException()
+            }
+
+            val ahora = System.currentTimeMillis()
+            adjuntoDao.insertar(
+                AdjuntoEntity(
+                    solicitudId = id,
+                    usuarioId = usuarioId,
+                    usuarioNombre = nombreDe(usuarioId),
+                    nombre = adjunto.nombre,
+                    tipo = adjunto.tipo,
+                    uri = adjunto.uri,
+                    fecha = ahora
+                )
+            )
+            dao.actualizar(solicitud.copy(ultimaActualizacion = ahora))
+            registrarHistorial(
+                solicitudId = id,
+                estadoAnterior = solicitud.estado,
+                estadoNuevo = solicitud.estado,
+                accion = ACCION_ADJUNTO,
+                comentario = adjunto.nombre,
+                usuarioId = usuarioId,
+                rol = rol,
+                fecha = ahora
+            )
+        }
+    }
+
+    // Revisa las solicitudes con plazo vencido y avisa: el administrador recibe el total y el técnico
+    // las que tiene asignadas. El cliente no recibe este aviso. Devuelve cuántas hay atrasadas.
+    suspend fun avisarSolicitudesAtrasadas(usuarioId: Int, rol: String): Result<Int> {
+        return try {
+            val solicitudes = when (rol) {
+                ROL_ADMINISTRADOR -> dao.obtenerTodas().first()
+                ROL_TECNICO -> dao.obtenerVisibles(usuarioId, rol).first()
+                else -> return Result.success(0)
+            }
+            val cantidad = solicitudes.count { PlazosSolicitud.estaAtrasada(it) }
+            if (cantidad > 0) {
+                notificador.publicar(
+                    if (rol == ROL_ADMINISTRADOR) {
+                        Avisos.atrasadasParaAdministrador(cantidad)
+                    } else {
+                        Avisos.atrasadasParaTecnico(cantidad)
+                    }
+                )
+            }
+            Result.success(cantidad)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     // ---------- Utilidades ----------
@@ -553,9 +676,9 @@ class SolicitudRepository(
     }
 
     private companion object {
-        const val ROL_CLIENTE = "cliente"
-        const val ROL_ADMINISTRADOR = "administrador"
-        const val ROL_TECNICO = "tecnico"
+        const val ROL_CLIENTE = Roles.CLIENTE
+        const val ROL_ADMINISTRADOR = Roles.ADMINISTRADOR
+        const val ROL_TECNICO = Roles.TECNICO
 
         // Textos de la columna "accion" del historial
         const val ACCION_REGISTRO = "Solicitud registrada"
@@ -565,5 +688,6 @@ class SolicitudRepository(
         const val ACCION_PRIORIDAD = "Prioridad modificada"
         const val ACCION_CANCELACION = "Solicitud cancelada"
         const val ACCION_ELIMINACION = "Solicitud eliminada"
+        const val ACCION_ADJUNTO = "Adjunto agregado"
     }
 }

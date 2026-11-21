@@ -24,5 +24,9 @@ data class UsuarioEntity(
     val nombre: String,
 
     // "cliente", "administrador" o "tecnico". "general" solo existía antes de la versión 3.
-    val rol: String = "general"
+    val rol: String = "general",
+
+    // Datos de contacto FICTICIOS del cliente (desde la versión 6). Vacío = sin datos.
+    val empresa: String = "",
+    val telefono: String = ""
 )

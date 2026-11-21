@@ -24,11 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,9 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +74,12 @@ import com.example.appsolicitudes_grupo12.ui.components.EvidenciasTrabajo
 import com.example.appsolicitudes_grupo12.ui.components.EliminarSolicitud
 import com.example.appsolicitudes_grupo12.model.compartir.MensajeWhatsApp
 import com.example.appsolicitudes_grupo12.ui.components.CompartirWhatsApp
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
+import com.example.appsolicitudes_grupo12.model.solicitud.MedicionTiempos
+import com.example.appsolicitudes_grupo12.model.solicitud.PlazosSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.AdjuntosSolicitud
+import com.example.appsolicitudes_grupo12.ui.components.ComentarioSeguimiento
+import com.example.appsolicitudes_grupo12.ui.components.EtiquetaAtrasada
 
 // Detalle de una solicitud, con dos modos:
 //   - Lectura: datos guardados, foto de evidencia, código QR y botón "Editar solicitud".
@@ -102,6 +102,7 @@ fun DetalleSolicitudScreen(
     val historial by viewModel.historial.collectAsState()
     val comentarios by viewModel.comentarios.collectAsState()
     val acciones by viewModel.acciones.collectAsState()
+    val cliente by viewModel.cliente.collectAsState()
 
     // Mensajes emergentes para errores al guardar los cambios
     val snackbarHostState = remember { SnackbarHostState() }
@@ -184,6 +185,7 @@ fun DetalleSolicitudScreen(
                                 comentarios = comentarios,
                                 procesando = acciones.procesando,
                                 usuarioId = usuarioId,
+                                cliente = cliente,
                                 onAvanceEnviado = viewModel::refrescarSolicitud,
                                 onEditar = viewModel::iniciarEdicion,
                                 onCambiarEstado = viewModel::cambiarEstado,
@@ -286,6 +288,7 @@ private fun DetalleLectura(
     comentarios: List<ComentarioSolicitudEntity>,
     procesando: Boolean,
     usuarioId: Int,
+    cliente: UsuarioEntity?,
     onAvanceEnviado: () -> Unit,
     onEditar: () -> Unit,
     onCambiarEstado: (EstadoSolicitud, String?) -> Unit,
@@ -326,7 +329,48 @@ private fun DetalleLectura(
             valor = formatearFecha(solicitud.ultimaActualizacion)
         )
 
+        // Plazo y tiempo de la solicitud (datos ficticios y medición simulada)
+        CampoDeLectura(
+            etiqueta = "Plazo de atención (ficticio)",
+            valor = "${PlazosSolicitud.plazoEnDias(PrioridadSolicitud.desdeTexto(solicitud.prioridad))} " +
+                    "día(s) según la prioridad"
+        )
+        CampoDeLectura(
+            etiqueta = "Tiempo transcurrido (simulado)",
+            valor = MedicionTiempos.formatear(
+                MedicionTiempos.tiempoTranscurridoMs(
+                    solicitud.estado,
+                    solicitud.fechaCreacion,
+                    solicitud.ultimaActualizacion
+                )
+            )
+        )
+
+        // Datos de contacto ficticios del cliente que registró la solicitud
+        if (cliente != null && (cliente.empresa.isNotBlank() || cliente.telefono.isNotBlank())) {
+            CampoDeLectura(etiqueta = "Cliente", valor = cliente.nombre)
+            CampoDeLectura(
+                etiqueta = "Empresa (ficticia)",
+                valor = cliente.empresa.ifBlank { "No indicada" }
+            )
+            CampoDeLectura(
+                etiqueta = "Teléfono (ficticio)",
+                valor = cliente.telefono.ifBlank { "No indicado" }
+            )
+        }
+
         EvidenciaSolicitud(evidenciaUri = solicitud.evidenciaUri)
+
+        // Imágenes y documentos adicionales. Cliente y administrador agregan mientras se puede editar.
+        val estadoSolicitud = EstadoSolicitud.desdeTexto(solicitud.estado)
+        AdjuntosSolicitud(
+            solicitudId = solicitud.id,
+            usuarioId = usuarioId,
+            rol = rol,
+            puedeAgregar = estadoSolicitud != null &&
+                    ReglasTransicion.puedeAdjuntar(rol, estadoSolicitud),
+            alAgregar = onAvanceEnviado
+        )
 
         // QR con los datos actuales: si la solicitud se edita, se actualiza solo.
         // La foto no viaja dentro del QR.
@@ -386,6 +430,17 @@ private fun DetalleLectura(
             procesando = procesando,
             onCambiarEstado = onCambiarEstado
         )
+
+        // Comentario de seguimiento: solo el administrador, mientras no esté Cerrada ni Cancelada
+        val estadoParaComentar = EstadoSolicitud.desdeTexto(solicitud.estado)
+        if (estadoParaComentar != null && ReglasTransicion.puedeComentar(rol, estadoParaComentar)) {
+            ComentarioSeguimiento(
+                id = solicitud.id,
+                usuarioId = usuarioId,
+                rol = rol,
+                onEnviado = onAvanceEnviado
+            )
+        }
 
         // Comentarios del cliente y del administrador; los avances del técnico van en la caja
         ComentariosSolicitud(comentarios = comentarios.filter { it.rol != "tecnico" })
@@ -593,7 +648,13 @@ private fun EncabezadoSolicitud(solicitud: SolicitudEntity) {
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary
         )
-        EtiquetaEstado(solicitud.estado)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (PlazosSolicitud.estaAtrasada(solicitud)) EtiquetaAtrasada()
+            EtiquetaEstado(solicitud.estado)
+        }
     }
 }
 

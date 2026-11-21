@@ -26,8 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
@@ -61,6 +59,8 @@ import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 import com.example.appsolicitudes_grupo12.model.solicitud.EstadoSolicitud
 import com.example.appsolicitudes_grupo12.model.solicitud.PrioridadSolicitud
 import com.example.appsolicitudes_grupo12.ui.components.ChipFiltro
+import com.example.appsolicitudes_grupo12.ui.components.EtiquetaAtrasada
+import com.example.appsolicitudes_grupo12.model.solicitud.PlazosSolicitud
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.IconButton
@@ -145,6 +145,7 @@ fun ListaSolicitudesScreen(
                                 onPrioridadChange = viewModel::onPrioridadFiltroChange,
                                 onClienteChange = viewModel::onClienteFiltroChange,
                                 onResponsableChange = viewModel::onResponsableFiltroChange,
+                                onAtrasadasChange = viewModel::onSoloAtrasadasChange,
                                 onOrdenChange = viewModel::onOrdenChange,
                                 onLimpiar = viewModel::limpiarFiltros
                             )
@@ -190,6 +191,7 @@ private fun FiltrosLista(
     onPrioridadChange: (String?) -> Unit,
     onClienteChange: (Int?) -> Unit,
     onResponsableChange: (Int?) -> Unit,
+    onAtrasadasChange: (Boolean) -> Unit,
     onOrdenChange: (OrdenSolicitudes) -> Unit,
     onLimpiar: () -> Unit
 ) {
@@ -222,6 +224,13 @@ private fun FiltrosLista(
             opciones = CategoriasSolicitud.LISTA.map { it to it },
             onElegir = onCategoriaChange,
             textoSinFiltro = "Todas"
+        )
+
+        // Solicitudes con el plazo vencido (el administrador las consulta desde aquí)
+        FilterChip(
+            selected = filtro.soloAtrasadas,
+            onClick = { onAtrasadasChange(!filtro.soloAtrasadas) },
+            label = { Text("Solo atrasadas") }
         )
 
         if (esAdministrador) {
@@ -447,7 +456,13 @@ private fun TarjetaSolicitud(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
-                EtiquetaEstado(solicitud.estado)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (PlazosSolicitud.estaAtrasada(solicitud)) EtiquetaAtrasada()
+                    EtiquetaEstado(solicitud.estado)
+                }
             }
 
             Text(

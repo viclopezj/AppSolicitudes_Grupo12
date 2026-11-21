@@ -10,3 +10,5 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+# Clases que Gson lee por reflexión (categorías desde la API)
+-keep class com.example.appsolicitudes_grupo12.model.data.remote.** { *; }

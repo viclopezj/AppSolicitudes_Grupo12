@@ -21,8 +21,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Firma del APK release. Es una clave de práctica (datos ficticios) y el .jks va en el repositorio.
+    signingConfigs {
+        create("release") {
+            storeFile = file("keystore/solicitudes.jks")
+            storePassword = "grupo12clave"
+            keyAlias = "solicitudes"
+            keyPassword = "grupo12clave"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")

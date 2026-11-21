@@ -31,6 +31,7 @@ import com.example.appsolicitudes_grupo12.model.aviso.Avisos
 import com.example.appsolicitudes_grupo12.model.aviso.Notificador
 import com.example.appsolicitudes_grupo12.model.aviso.NotificadorNulo
 import com.example.appsolicitudes_grupo12.model.data.local.SolicitudEntity
+import com.example.appsolicitudes_grupo12.model.data.local.UsuarioEntity
 
 // ViewModel del detalle: lee UNA solicitud, pasa de lectura a edición, valida y guarda cambios.
 class DetalleSolicitudViewModel(
@@ -53,6 +54,10 @@ class DetalleSolicitudViewModel(
 
     private val _comentarios = MutableStateFlow<List<ComentarioSolicitudEntity>>(emptyList())
     val comentarios: StateFlow<List<ComentarioSolicitudEntity>> = _comentarios.asStateFlow()
+
+    // Cliente que registró la solicitud: de ahí salen la empresa y el teléfono ficticios
+    private val _cliente = MutableStateFlow<UsuarioEntity?>(null)
+    val cliente: StateFlow<UsuarioEntity?> = _cliente.asStateFlow()
 
     // Estado de las acciones (cambiar estado, etc.)
     private val _acciones = MutableStateFlow(AccionesUiState())
@@ -85,9 +90,18 @@ class DetalleSolicitudViewModel(
             repositorio.obtenerSolicitud(id, usuarioId, rol)
                 .onSuccess { solicitud ->
                     _estado.value = DetalleSolicitudUiState.Success(solicitud)
+                    cargarCliente(solicitud.creadoPorUsuarioId)
                 }
                 .onFailure { error -> mostrarErrorDeLectura(error) }
         }
+    }
+
+    // Lee los datos de contacto del cliente (solo si todavía no se leyeron). Si falla, no se muestran.
+    private suspend fun cargarCliente(clienteId: Int?) {
+        if (clienteId == null || _cliente.value?.id == clienteId) return
+        repositorio.obtenerUsuario(clienteId)
+            .onSuccess { _cliente.value = it }
+            .onFailure { Log.e("DetalleSolicitudVM", "Error al leer los datos del cliente", it) }
     }
 
     // Si la solicitud no existe -> NoEncontrada; si falló otra cosa -> Error con mensaje amable.
