@@ -30,7 +30,7 @@ Para esta etapa se amplió el **módulo de Solicitudes** con **tres perfiles** (
 * Animaciones con la API de Compose y tema visual propio (claro y oscuro).
 * Diseño adaptable según el tamaño de ventana (Window Size Classes).
 * Recursos nativos: cámara (foto de evidencia y escáner QR), galería y notificaciones.
-* Pruebas automatizadas: 2 unitarias y 2 de interfaz.
+* Pruebas automatizadas: 9 clases de pruebas unitarias (41 pruebas) y 2 de interfaz.
 
 > Todos los datos utilizados son \*\*ficticios\*\*. La app no lee conversaciones reales ni se conecta a WhatsApp: el envío por WhatsApp es solo una simulación.
 
@@ -387,7 +387,10 @@ app/src/main/java/com/example/appsolicitudes\_grupo12/
 
 app/src/test/java/com/example/appsolicitudes\_grupo12/          (pruebas unitarias)
 ├── model/solicitud/ReglasTransicionTest.kt
-└── model/data/repository/CatalogoRepositoryTest.kt
+├── model/solicitud/ValidadorSolicitudTest.kt
+├── model/aviso/AvisosYMensajesTest.kt
+├── model/exportacion/ResumenYExportacionTest.kt
+└── model/data/repository/ (Auth, Usuario, Borrador, Solicitud y Catalogo)
 
 app/src/androidTest/java/com/example/appsolicitudes\_grupo12/   (pruebas de interfaz)
 ├── FormularioScreenTest.kt
@@ -475,14 +478,17 @@ Todas las cuentas usan la clave `1234`. Lo más claro es probarlo en este orden,
 
 ## Testing
 
-Hay **2 pruebas unitarias** (`src/test`) y **2 pruebas de interfaz** (`src/androidTest`).
+Hay **9 clases de pruebas unitarias con 41 pruebas** (`src/test`) y **2 pruebas de interfaz** (`src/androidTest`). Los DAO y el `ApiService` se simulan con MockK.
 
 |Prueba|Tipo|Qué valida|
 |-|-|-|
-|`ReglasTransicionTest`|Unitaria (Kotest)|9 casos de las reglas de negocio: quién pasa de Recibida a En revisión, quién inicia y resuelve, que el cliente solo confirma una solicitud Resuelta, la reapertura solo desde Resuelta, que Cerrada y Cancelada no tienen salida, el destino al responder información, cuándo se exige mensaje, prioridad y asignación solo del administrador, y que el técnico registra avances solo En proceso y la edición y la eliminación se limitan por estado y perfil.|
-|`CatalogoRepositoryTest`|Unitaria (Kotest + MockK + `runTest`)|4 casos con un `ApiService` simulado y sin internet: asigna por orden los nombres de categoría del caso a los productos de la API, descarta los que no tienen id o título, trata una respuesta sin productos como lista vacía y entrega un error de red como `Result.failure` en vez de lanzar una excepción.|
-|`FormularioScreenTest`|Interfaz (Compose UI Test)|Con el formulario vacío, al pulsar "Registrar solicitud" aparecen los tres errores de validación y no se guarda nada.|
-|`AccionesSolicitudTest`|Interfaz (Compose UI Test)|Los botones del cliente cambian según el estado: responder información en "Pendiente de información", confirmar o pedir reapertura en "Resuelta", y ninguno en "Recibida".|
+|`ReglasTransicionTest`|Unitaria (Kotest)|10 casos de las reglas de negocio: transiciones por perfil, mensajes obligatorios, edición, eliminación, atrasos y tiempos.|
+|`ValidadorSolicitudTest`|Unitaria (Kotest)|3 casos de las validaciones del formulario.|
+|`AvisosYMensajesTest`|Unitaria (Kotest)|4 casos: avisos por estado, plural de atrasadas y mensaje de WhatsApp.|
+|`AuthRepositoryTest`, `UsuarioRepositoryTest`, `BorradorRepositoryTest`|Unitarias (Kotest + MockK + `runTest`)|10 casos de los repositorios con DAO simulados (login, usuarios y borradores).|
+|`SolicitudRepositoryTest`|Unitaria (Kotest + MockK + `runTest`)|6 casos: lecturas y aviso de solicitudes atrasadas.|
+|`CatalogoRepositoryTest`|Unitaria (Kotest + MockK + `runTest`)|4 casos con un `ApiService` simulado y sin internet.|
+|`ResumenYExportacionTest`|Unitaria (Kotest)|4 casos: promedios de tiempo, duración y CSV.|
 
 **Cómo ejecutarlas**
 
@@ -501,13 +507,12 @@ En la tercera evaluación se probó en el **emulador de Android Studio** (Medium
 
 Pasos para generar el APK firmado desde Android Studio:
 
-1. Menú **Build > Generate Signed App Bundle / APK…**, elegir **APK** y pulsar **Next**.
-2. En **Key store path** pulsar **Create new…** y completar:
-  - Ubicación del archivo `.jks`: `app/keystore/solicitudes.jks`, dentro del proyecto.
-  - Contraseña del almacén, alias de la clave (por ejemplo `appsolicitudes`), contraseña de la clave y validez de 25 años.
-  - Datos del certificado: solo nombre del equipo (por ejemplo "Grupo 12"); no se usan datos personales reales.
-3. Pulsar **Next**, elegir la variante **release** y marcar las firmas **V1** y **V2**. Pulsar **Create**.
-4. El APK queda en `app/release/app-release.apk` (o en `app/build/outputs/apk/release/`).
+La llave y la configuración de firma ya están en el proyecto. Para generar el APK:
+
+1. En la terminal de Android Studio: `gradlew.bat assembleRelease`. El APK queda en `app/build/outputs/apk/release/app-release.apk`.
+2. O con la ventana: **Build > Generate Signed App Bundle / APK…** > **APK** > **Choose existing…** > `app/keystore/solicitudes.jks` (alias `solicitudes`; las claves están en `signingConfigs`) > variante **release** > **Finish**. El APK queda en `app/release/app-release.apk`.
+3. Para instalarlo en el emulador, desinstalar antes la app (cambia la llave), arrastrar el archivo a la ventana del emulador o ejecutar `adb install -r app-release.apk`.
+4. Opcional: comprobar la firma con `apksigner verify --verbose app-release.apk`.
 5. Para instalarlo en el emulador, arrastrar el archivo a la ventana del emulador, o ejecutar `adb install -r app-release.apk`.
 6. Opcional: comprobar la firma con `apksigner verify --verbose app-release.apk`.
 
